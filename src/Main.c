@@ -62,7 +62,7 @@ typedef struct State {
 //Returns the screenXY of the top left pixel of the tile
 iVec2 mapTileXYtoScreenXY(int MapX, int MapY, RenderParams param) {
     int mapRenderOffset = -(param.mapHeight - param.mapViewPortHeight);
-    int tileYOffset = param.mapViewPortHeight / param.tileSize;
+    int tileYOffset = (param.mapViewPortHeight-1) / param.tileSize;
     int scrollOffset = (param.smoothScrollY / param.scale);
 
     return (struct iVec2) { MapX* param.tileSize, (-MapY + tileYOffset)* param.tileSize + mapRenderOffset % param.tileSize + scrollOffset };
@@ -70,7 +70,7 @@ iVec2 mapTileXYtoScreenXY(int MapX, int MapY, RenderParams param) {
 
 iVec2 mapWorldXYtoScreenXY(float MapX, float MapY, RenderParams param) {
     int mapRenderOffset = -(param.mapHeight - param.mapViewPortHeight);
-    int tileYOffset = param.mapViewPortHeight / param.tileSize;
+    int tileYOffset = (param.mapViewPortHeight-1) / param.tileSize;
     int scrollOffset = (param.smoothScrollY / param.scale);
 
     return (struct iVec2) { MapX* (float)(param.tileSize), (-MapY + tileYOffset)* (float)(param.tileSize) + mapRenderOffset % param.tileSize + scrollOffset };
@@ -95,6 +95,29 @@ void UpdateDrawFrame(void* v_state) {
     if (state->cursTilePos.y >= state->mapSizeY) state->cursTilePos.y = state->mapSizeY - 1;
     if (state->cursTilePos.x < 0) state->cursTilePos.x = 0;
     if (state->cursTilePos.x >= state->mapSizeX) state->cursTilePos.x = state->mapSizeX - 1;
+
+
+    bool scrollUp = 0;
+    bool scrollDown = 0;
+
+    int cursorYScreen = mapTileXYtoScreenXY(state->cursTilePos.x, state->cursTilePos.y, state->renderParams).y;
+    int screenCenter = (state->baseSizeY / 2);
+    int cursorScreenCenterDist = abs(screenCenter - cursorYScreen);
+    int scrollSpeed = 4;
+    if (cursorScreenCenterDist < scrollSpeed)
+        { scrollSpeed = cursorScreenCenterDist; }
+
+    if (cursorYScreen < screenCenter) 
+        { scrollUp = 1; }
+    if (cursorYScreen > screenCenter) 
+        { scrollDown = 1; }
+
+    if (scrollUp && state->smoothScrollY <= (state->map.height - state->baseSizeY + 1) * state->scale) 
+        { state->smoothScrollY += scrollSpeed; }
+    if (scrollDown && state->smoothScrollY > 0) 
+        { state->smoothScrollY -= scrollSpeed; }
+
+    state->renderParams.smoothScrollY = state->smoothScrollY;
 
 
     float col_length = 1.0f;
