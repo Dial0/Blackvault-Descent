@@ -44,6 +44,7 @@ typedef struct State {
 
 	Texture2D map;
 	Texture2D ui;
+	Texture2D ent;
 
 	iVec2 cursTilePos;
 	RenderTexture2D mapRendTex;
@@ -542,6 +543,9 @@ void UpdateDrawFrame(void* v_state) {
 		RenderPath(state);
 	}
 
+	iVec2 playerEntityPixelPos = mapWorldXYtoScreenXY(state->PlayerEnt.worldPos.x, state->PlayerEnt.worldPos.y, state->renderParams);
+	DrawTextureRec(state->ent, (struct Rectangle) { 0.0f,16.0f,16.0f,16.0f }, (struct Vector2) { playerEntityPixelPos.x,playerEntityPixelPos.y }, WHITE);
+
 	EndTextureMode();
 
 	BeginTextureMode(state->uiRendTex);
@@ -565,9 +569,6 @@ void UpdateDrawFrame(void* v_state) {
 
 int main(void) {
 
-
-
-
 	State state;
 
 	state.tileSize = 16;
@@ -590,11 +591,12 @@ int main(void) {
 	state.mapSizeX = 27;
 	state.mapSizeY = 19;
 
-	InitWindow(state.screenWidth, state.screenHeight, "raylib [core] example - basic window");
+	InitWindow(state.screenWidth, state.screenHeight, "BlackVault - Descent");
 
 
 	state.map = LoadTexture("resources/map.png");
 	state.ui = LoadTexture("resources/UI.png");
+	state.ent = LoadTexture("resources/entities.png");
 
 	font = LoadFontEx("resources/rainyhearts.ttf", fontSize, NULL, 0);
 	SetTextureFilter(font.texture, TEXTURE_FILTER_POINT);
