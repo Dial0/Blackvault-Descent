@@ -445,6 +445,7 @@ void RenderPath(State* state) {
 
 }
 
+
 void UpdateDrawFrame(void* v_state) {
 
 
@@ -503,19 +504,38 @@ void UpdateDrawFrame(void* v_state) {
 
 	state->renderParams.smoothScrollY = state->smoothScrollY;
 
+	if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
 
-	state->pathsize = findAsPath(state->PlayerEnt.tilePos, state->cursTilePos, state->mapData, state->path, 200);
-	state->totalPathCost = 0;
-	for (int i = 0; i < state->pathsize; i++) {
-		//unsigned int dataPos = 2 + state->path[i] * 4;
-		//unsigned int tileData;
-		//memcpy(&tileData, state->mapData + dataPos, 4);
-		//state->totalPathCost += calcTileMoveCost(tileData);
-		state->totalPathCost += 1;
+		if (state->movePathIdx < state->pathsize) {
+			state->pathsize = findAsPath(state->PlayerEnt.targetTilePos, state->cursTilePos, state->mapData, state->path, 200);
+		}
+		else {
+			state->pathsize = findAsPath(state->PlayerEnt.tilePos, state->cursTilePos, state->mapData, state->path, 200);
+			state->PlayerEnt.targetTilePos = mapIdxToXY(state->path[0], state->mapSizeX);
+		}
+
+
+		state->movePathIdx = 0;
+	}
+	
+
+	float col_length = 1.0f;
+	if ((state->movePathIdx < state->pathsize)) {
+		if (moveEntity(&state->PlayerEnt)) {
+			state->movePathIdx += 1;
+			if (state->movePathIdx == state->pathsize) {
+				// FINISHED MOVING TO NEW LOCATION 
+				state->movePathIdx = 0;
+				state->pathsize = 0;
+			}
+			else {
+				state->PlayerEnt.targetTilePos = mapIdxToXY(state->path[state->movePathIdx], state->mapSizeX);
+				state->curTileTurnsTraversed = 0;
+			}
+		}
 	}
 
 
-	float col_length = 1.0f;
 
 	BeginDrawing();
 
@@ -582,7 +602,7 @@ int main(void) {
 	state.screenHeight = state.baseSizeY * state.scale - state.scale;
 
 	state.cursTilePos = (iVec2){ 13,8 };
-	state.PlayerEnt = (Entity){ (struct iVec2) { 13,8 },(struct Vector2) { 13.0f,8.0f },(struct iVec2) { 13,8 }, 0.01f };
+	state.PlayerEnt = (Entity){ (struct iVec2) { 13,8 },(struct Vector2) { 13.0f,8.0f },(struct iVec2) { 13,8 }, 0.05f };
 	state.pathsize = 0;
 	state.movePathIdx = 0;
 	state.totalPathCost = 0;
