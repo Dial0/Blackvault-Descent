@@ -468,6 +468,15 @@ void UpdateDrawFrame(void* v_state) {
 
 	state->cursTilePos = screenXYtoMapTileXY(mousePos.x / state->renderParams.scale, mousePos.y / state->renderParams.scale, state->renderParams);
 
+	int playAreaYMin = 6;
+	int playAreaYMax = 16;
+	if (state->cursTilePos.y < playAreaYMin) state->cursTilePos.y = playAreaYMin;
+	if (state->cursTilePos.y > playAreaYMax) state->cursTilePos.y = playAreaYMax;
+	int playAreaXMin = 1;
+	int playAreaXMax = 25;
+	if (state->cursTilePos.x < playAreaXMin) state->cursTilePos.x = playAreaXMin;
+	if (state->cursTilePos.x > playAreaXMax) state->cursTilePos.x = playAreaXMax;
+
 	int cursorYScreen = mapTileXYtoScreenXY(state->cursTilePos.x, state->cursTilePos.y, state->renderParams).y;
 	int screenCenter = (state->baseSizeY / 2);
 	int cursorScreenCenterDist = abs(screenCenter - cursorYScreen);
