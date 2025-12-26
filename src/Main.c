@@ -16,11 +16,17 @@ typedef struct iVec2 {
 	int y;
 } iVec2;
 
+enum EntityState { IDLE, MOVING, ATTACKING };
+
 typedef struct Entity {
 	iVec2 tilePos;
 	Vector2 worldPos;
 	iVec2 targetTilePos;
 	float moveSpeed;
+	enum EntityState eState;
+	int path[200];
+	int pathsize;
+	int movePathIdx;
 } Entity;
 
 typedef struct RenderParams {
@@ -51,13 +57,7 @@ typedef struct State {
 	RenderTexture2D uiRendTex;
 	RenderParams renderParams;
 
-	Entity PlayerEnt;
-	bool playerMoving;
-	int path[200];
-	int pathsize;
-	int movePathIdx;
-	int totalPathCost;
-	int curTileTurnsTraversed;
+	Entity playerEnt;
 
 	int mapDataSize;
 	unsigned char* mapData;
@@ -369,16 +369,16 @@ int findAsPath(iVec2 startTile, iVec2 endTile, unsigned char* mapData, int* path
 	return 0;
 }
 
-void RenderPath(State* state) {
+void RenderPlayerPath(State* state) {
 
 
 	//int pathRawTileCost = 0;
 
-	for (int i = state->movePathIdx; i < state->pathsize; i++) {
+	for (int i = state->playerEnt.movePathIdx; i < state->playerEnt.pathsize; i++) {
 
 
 		int nextTile = i + 1;
-		if (nextTile >= state->pathsize) { nextTile = -1; }
+		if (nextTile >= state->playerEnt.pathsize) { nextTile = -1; }
 		int prevTile = i - 1;
 		if (prevTile < 0) { prevTile = -1; }
 
@@ -389,16 +389,16 @@ void RenderPath(State* state) {
 
 		int neighbors = 0;
 		if (nextTile > 0 && prevTile >= 0) { //drawing a path tile, not a start or end
-			if (state->path[i] + state->mapSizeX == state->path[nextTile] || state->path[i] + state->mapSizeX == state->path[prevTile]) { //tile to the north
+			if (state->playerEnt.path[i] + state->mapSizeX == state->playerEnt.path[nextTile] || state->playerEnt.path[i] + state->mapSizeX == state->playerEnt.path[prevTile]) { //tile to the north
 				neighbors |= north;
 			}
-			if (state->path[i] + 1 == state->path[nextTile] || state->path[i] + 1 == state->path[prevTile]) { //tile to the east
+			if (state->playerEnt.path[i] + 1 == state->playerEnt.path[nextTile] || state->playerEnt.path[i] + 1 == state->playerEnt.path[prevTile]) { //tile to the east
 				neighbors |= east;
 			}
-			if (state->path[i] - 1 == state->path[nextTile] || state->path[i] - 1 == state->path[prevTile]) { //tile to the west
+			if (state->playerEnt.path[i] - 1 == state->playerEnt.path[nextTile] || state->playerEnt.path[i] - 1 == state->playerEnt.path[prevTile]) { //tile to the west
 				neighbors |= west;
 			}
-			if (state->path[i] - state->mapSizeX == state->path[nextTile] || state->path[i] - state->mapSizeX == state->path[prevTile]) { //tile to the south
+			if (state->playerEnt.path[i] - state->mapSizeX == state->playerEnt.path[nextTile] || state->playerEnt.path[i] - state->mapSizeX == state->playerEnt.path[prevTile]) { //tile to the south
 				neighbors |= south;
 			}
 		}
@@ -429,7 +429,7 @@ void RenderPath(State* state) {
 
 		Rectangle pathTileSrc = { drawtileID * state->tileSize, 2 * state->tileSize, state->tileSize,state->tileSize };
 
-		iVec2 tileLoc = mapIdxToXY(state->path[i], state->mapSizeX);
+		iVec2 tileLoc = mapIdxToXY(state->playerEnt.path[i], state->mapSizeX);
 		iVec2 pathPos = mapTileXYtoScreenXY(tileLoc.x, tileLoc.y, state->renderParams);
 
 		//unsigned int tileData = getTileData(tileLoc.x, tileLoc.y, state->mapData);
@@ -443,6 +443,26 @@ void RenderPath(State* state) {
 
 	}
 
+}
+
+bool updateEntityMovement(Entity* entity, int mapSizeX){
+	bool movedNewTile = false;
+	if ((entity->movePathIdx < entity->pathsize)) {
+		if (moveEntity(entity)) {
+			entity->movePathIdx += 1;
+			movedNewTile = true;
+			if (entity->movePathIdx == entity->pathsize) {
+				// FINISHED MOVING TO NEW LOCATION 
+				entity->movePathIdx = 0;
+				entity->pathsize = 0;
+				entity->eState = IDLE;
+			}
+			else {
+				entity->targetTilePos = mapIdxToXY(entity->path[entity->movePathIdx],mapSizeX);
+			}
+		}
+	}
+	return movedNewTile;
 }
 
 
@@ -504,38 +524,31 @@ void UpdateDrawFrame(void* v_state) {
 
 	state->renderParams.smoothScrollY = state->smoothScrollY;
 
+	if (state->curTurn != state->prevTurn) {
+		state->prevTurn = state->curTurn;
+
+		//Do the AI stuff here
+	}
+
 	if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
 
-		if (state->movePathIdx < state->pathsize) {
-			state->pathsize = findAsPath(state->PlayerEnt.targetTilePos, state->cursTilePos, state->mapData, state->path, 200);
+		if (state->playerEnt.movePathIdx < state->playerEnt.pathsize) {
+			state->playerEnt.pathsize = findAsPath(state->playerEnt.targetTilePos, state->cursTilePos, state->mapData, state->playerEnt.path, 200);
 		}
 		else {
-			state->pathsize = findAsPath(state->PlayerEnt.tilePos, state->cursTilePos, state->mapData, state->path, 200);
-			state->PlayerEnt.targetTilePos = mapIdxToXY(state->path[0], state->mapSizeX);
+			state->playerEnt.pathsize = findAsPath(state->playerEnt.tilePos, state->cursTilePos, state->mapData, state->playerEnt.path, 200);
+			state->playerEnt.targetTilePos = mapIdxToXY(state->playerEnt.path[0], state->mapSizeX);
 		}
-
-
-		state->movePathIdx = 0;
+		state->playerEnt.eState = MOVING;
+		state->playerEnt.movePathIdx = 0;
 	}
 	
 
-	float col_length = 1.0f;
-	if ((state->movePathIdx < state->pathsize)) {
-		if (moveEntity(&state->PlayerEnt)) {
-			state->movePathIdx += 1;
-			if (state->movePathIdx == state->pathsize) {
-				// FINISHED MOVING TO NEW LOCATION 
-				state->movePathIdx = 0;
-				state->pathsize = 0;
-			}
-			else {
-				state->PlayerEnt.targetTilePos = mapIdxToXY(state->path[state->movePathIdx], state->mapSizeX);
-				state->curTileTurnsTraversed = 0;
-			}
-		}
+
+	if (updateEntityMovement(&state->playerEnt, state->mapSizeX)) {
+		state->curTurn += 1;
 	}
-
-
+	
 
 	BeginDrawing();
 
@@ -559,11 +572,15 @@ void UpdateDrawFrame(void* v_state) {
 
 	DrawTextureRec(state->ui, cursorRec, (struct Vector2) { cursPixel.x - centOff, cursPixel.y - centOff }, WHITE);
 
-	if (state->pathsize) {
-		RenderPath(state);
+	if (state->playerEnt.pathsize) {
+		RenderPlayerPath(state);
+		Rectangle pathEndRec = { 19.0f,0.0f,18.0f,18.0f };
+		iVec2 tilePathEnd = mapIdxToXY(state->playerEnt.path[state->playerEnt.pathsize-1], state->mapSizeX);
+		iVec2 pathEndPixel = mapTileXYtoScreenXY(tilePathEnd.x, tilePathEnd.y, state->renderParams);
+		DrawTextureRec(state->ui, pathEndRec, (struct Vector2) { pathEndPixel.x - centOff, pathEndPixel.y - centOff }, WHITE);
 	}
 
-	iVec2 playerEntityPixelPos = mapWorldXYtoScreenXY(state->PlayerEnt.worldPos.x, state->PlayerEnt.worldPos.y, state->renderParams);
+	iVec2 playerEntityPixelPos = mapWorldXYtoScreenXY(state->playerEnt.worldPos.x, state->playerEnt.worldPos.y, state->renderParams);
 	DrawTextureRec(state->ent, (struct Rectangle) { 0.0f,16.0f,16.0f,16.0f }, (struct Vector2) { playerEntityPixelPos.x,playerEntityPixelPos.y }, WHITE);
 
 	EndTextureMode();
@@ -602,10 +619,9 @@ int main(void) {
 	state.screenHeight = state.baseSizeY * state.scale - state.scale;
 
 	state.cursTilePos = (iVec2){ 13,8 };
-	state.PlayerEnt = (Entity){ (struct iVec2) { 13,8 },(struct Vector2) { 13.0f,8.0f },(struct iVec2) { 13,8 }, 0.05f };
-	state.pathsize = 0;
-	state.movePathIdx = 0;
-	state.totalPathCost = 0;
+	state.playerEnt = (Entity){ (struct iVec2) { 13,8 },(struct Vector2) { 13.0f,8.0f },(struct iVec2) { 13,8 }, 0.05f };
+	state.playerEnt.pathsize = 0;
+	state.playerEnt.movePathIdx = 0;
 
 	state.mapData = LoadFileData("resources/respitetest.rspb", &state.mapDataSize);
 	state.mapSizeX = 27;
@@ -626,7 +642,7 @@ int main(void) {
 
 	state.renderParams = (RenderParams){ state.baseSizeX ,state.baseSizeY,state.map.width,state.map.height,state.tileSize,state.smoothScrollY,state.scale };
 
-	state.playerMoving = false;
+	state.playerEnt.eState = IDLE;
 
 	SetTargetFPS(60);               // Set our game to run at 60 frames-per-second
 	//--------------------------------------------------------------------------------------
