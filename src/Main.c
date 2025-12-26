@@ -27,6 +27,8 @@ typedef struct Entity {
 	int path[200];
 	int pathsize;
 	int movePathIdx;
+	int aniFrame;
+	Rectangle baseTexSource;
 } Entity;
 
 typedef struct RenderParams {
@@ -137,32 +139,6 @@ Vector2 screenXYtoMapWorldXY(float screenX, float screenY, RenderParams param) {
 }
 
 
-int moveEntity(Entity* entity) {
-
-	//if we are already at the target return
-	if (entity->tilePos.x == entity->targetTilePos.x
-		&& entity->tilePos.y == entity->targetTilePos.y) {
-		return 1;
-	}
-	Vector2 target = { entity->targetTilePos.x, entity->targetTilePos.y };
-	Vector2 dir = Vector2Normalize(Vector2Subtract(target, entity->worldPos));
-
-
-	entity->worldPos = Vector2Add(Vector2Scale(dir, entity->moveSpeed), entity->worldPos);
-
-	//entity->aniFrame += 1;
-
-	if (Vector2Distance(entity->worldPos, target) <= entity->moveSpeed) {
-		entity->tilePos = entity->targetTilePos;
-		entity->worldPos.x = entity->tilePos.x;
-		entity->worldPos.y = entity->tilePos.y;
-		//entity->aniFrames = 0;
-		return 1;
-	}
-
-	return 0;
-
-}
 
 int calcTileMoveCost(unsigned int tileData) {
 
@@ -369,6 +345,55 @@ int findAsPath(iVec2 startTile, iVec2 endTile, unsigned char* mapData, int* path
 	return 0;
 }
 
+
+int moveEntity(Entity* entity) {
+
+	//if we are already at the target return
+	if (entity->tilePos.x == entity->targetTilePos.x
+		&& entity->tilePos.y == entity->targetTilePos.y) {
+		return 1;
+	}
+
+	Vector2 target = { entity->targetTilePos.x, entity->targetTilePos.y };
+	Vector2 dir = Vector2Normalize(Vector2Subtract(target, entity->worldPos));
+
+
+	entity->worldPos = Vector2Add(Vector2Scale(dir, entity->moveSpeed), entity->worldPos);
+
+	entity->aniFrame += 1;
+
+	if (Vector2Distance(entity->worldPos, target) <= entity->moveSpeed) {
+		entity->tilePos = entity->targetTilePos;
+		entity->worldPos.x = entity->tilePos.x;
+		entity->worldPos.y = entity->tilePos.y;
+		entity->aniFrame = 0;
+		return 1;
+	}
+
+	return 0;
+
+}
+
+bool updateEntityMovement(Entity* entity, int mapSizeX) {
+	bool movedNewTile = false;
+	if ((entity->movePathIdx < entity->pathsize)) {
+		if (moveEntity(entity)) {
+			entity->movePathIdx += 1;
+			movedNewTile = true;
+			if (entity->movePathIdx == entity->pathsize) {
+				// FINISHED MOVING TO NEW LOCATION 
+				entity->movePathIdx = 0;
+				entity->pathsize = 0;
+				entity->eState = IDLE;
+			}
+			else {
+				entity->targetTilePos = mapIdxToXY(entity->path[entity->movePathIdx], mapSizeX);
+			}
+		}
+	}
+	return movedNewTile;
+}
+
 void RenderPlayerPath(State* state) {
 
 
@@ -432,12 +457,6 @@ void RenderPlayerPath(State* state) {
 		iVec2 tileLoc = mapIdxToXY(state->playerEnt.path[i], state->mapSizeX);
 		iVec2 pathPos = mapTileXYtoScreenXY(tileLoc.x, tileLoc.y, state->renderParams);
 
-		//unsigned int tileData = getTileData(tileLoc.x, tileLoc.y, state->mapData);
-		//int tileMoveCost = calcTileMoveCost(tileData);
-
-		//pathRawTileCost += tileMoveCost;
-
-
 		DrawTextureRec(state->ui, pathTileSrc, (struct Vector2) { pathPos.x, pathPos.y }, WHITE);
 
 
@@ -445,26 +464,26 @@ void RenderPlayerPath(State* state) {
 
 }
 
-bool updateEntityMovement(Entity* entity, int mapSizeX){
-	bool movedNewTile = false;
-	if ((entity->movePathIdx < entity->pathsize)) {
-		if (moveEntity(entity)) {
-			entity->movePathIdx += 1;
-			movedNewTile = true;
-			if (entity->movePathIdx == entity->pathsize) {
-				// FINISHED MOVING TO NEW LOCATION 
-				entity->movePathIdx = 0;
-				entity->pathsize = 0;
-				entity->eState = IDLE;
-			}
-			else {
-				entity->targetTilePos = mapIdxToXY(entity->path[entity->movePathIdx],mapSizeX);
-			}
-		}
-	}
-	return movedNewTile;
-}
 
+
+void renderEntity(Entity entity, RenderParams renderParams, Texture2D tex) {
+	iVec2 playerEntityPixelPos = mapWorldXYtoScreenXY(entity.worldPos.x, entity.worldPos.y, renderParams);
+
+	bool alternateAnimation = ((int)entity.aniFrame / 10) % 2;
+
+
+	if (alternateAnimation) {
+
+		Rectangle newTexSource = entity.baseTexSource;
+		newTexSource.x += 16;
+		DrawTextureRec(tex, newTexSource, (struct Vector2) { playerEntityPixelPos.x, playerEntityPixelPos.y }, WHITE);
+
+	}
+	else {
+		DrawTextureRec(tex, entity.baseTexSource, (struct Vector2) { playerEntityPixelPos.x, playerEntityPixelPos.y }, WHITE);
+
+	}
+}
 
 void UpdateDrawFrame(void* v_state) {
 
@@ -580,8 +599,9 @@ void UpdateDrawFrame(void* v_state) {
 		DrawTextureRec(state->ui, pathEndRec, (struct Vector2) { pathEndPixel.x - centOff, pathEndPixel.y - centOff }, WHITE);
 	}
 
-	iVec2 playerEntityPixelPos = mapWorldXYtoScreenXY(state->playerEnt.worldPos.x, state->playerEnt.worldPos.y, state->renderParams);
-	DrawTextureRec(state->ent, (struct Rectangle) { 0.0f,16.0f,16.0f,16.0f }, (struct Vector2) { playerEntityPixelPos.x,playerEntityPixelPos.y }, WHITE);
+
+	renderEntity(state->playerEnt, state->renderParams, state->ent);
+
 
 	EndTextureMode();
 
@@ -622,6 +642,7 @@ int main(void) {
 	state.playerEnt = (Entity){ (struct iVec2) { 13,8 },(struct Vector2) { 13.0f,8.0f },(struct iVec2) { 13,8 }, 0.05f };
 	state.playerEnt.pathsize = 0;
 	state.playerEnt.movePathIdx = 0;
+	state.playerEnt.baseTexSource = (struct Rectangle){ 0.0f, 0.0f, 16.0f, 16.0f };
 
 	state.mapData = LoadFileData("resources/respitetest.rspb", &state.mapDataSize);
 	state.mapSizeX = 27;
