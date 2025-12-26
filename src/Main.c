@@ -50,6 +50,12 @@ typedef struct State {
 	int screenHeight;
 	int smoothScrollY;
 
+	Rectangle playArea;
+	//int playAreaYMin;
+	//int playAreaYMax;
+	//int playAreaXMin;
+	//int playAreaXMax;
+
 	Texture2D map;
 	Texture2D ui;
 	Texture2D ent;
@@ -60,6 +66,9 @@ typedef struct State {
 	RenderParams renderParams;
 
 	Entity playerEnt;
+
+	int enemiesSize;
+	Entity enemies[32];
 
 	int mapDataSize;
 	unsigned char* mapData;
@@ -367,7 +376,6 @@ int moveEntity(Entity* entity) {
 		entity->worldPos.x = entity->tilePos.x;
 		entity->worldPos.y = entity->tilePos.y;
 		entity->aniFrame = 0;
-		return 1;
 	}
 
 	return 0;
@@ -375,23 +383,23 @@ int moveEntity(Entity* entity) {
 }
 
 bool updateEntityMovement(Entity* entity, int mapSizeX) {
-	bool movedNewTile = false;
+	bool movingToNewTile = false;
 	if ((entity->movePathIdx < entity->pathsize)) {
 		if (moveEntity(entity)) {
 			entity->movePathIdx += 1;
-			movedNewTile = true;
 			if (entity->movePathIdx == entity->pathsize) {
-				// FINISHED MOVING TO NEW LOCATION 
+				// FINISHED MOVING THROUGH PATH
 				entity->movePathIdx = 0;
 				entity->pathsize = 0;
 				entity->eState = IDLE;
 			}
 			else {
 				entity->targetTilePos = mapIdxToXY(entity->path[entity->movePathIdx], mapSizeX);
+				movingToNewTile = true;
 			}
 		}
 	}
-	return movedNewTile;
+	return movingToNewTile;
 }
 
 void RenderPlayerPath(State* state) {
@@ -485,6 +493,37 @@ void renderEntity(Entity entity, RenderParams renderParams, Texture2D tex) {
 	}
 }
 
+
+void calculateEnemyTurn(Entity* enemyEntity, Entity player, Rectangle playArea) {
+	iVec2 targetPos = enemyEntity->tilePos;
+
+	int dir = GetRandomValue(0, 3);
+
+	if (dir == 0) { //North
+		targetPos.y += 1;
+	} else if (dir == 1) { //east
+		targetPos.x += 1;
+	} else if (dir == 2) { //south
+		targetPos.y -= 1;
+	} else { //west
+		targetPos.x -= 1;
+	}
+
+	int playAreaYMin = playArea.y;
+	int playAreaYMax = playArea.y + playArea.height;
+	int playAreaXMin = playArea.x;
+	int playAreaXMax = playArea.x + playArea.width;
+	if (targetPos.y < playAreaYMin) { targetPos.y = playAreaYMin; }
+	if (targetPos.y > playAreaYMax) { targetPos.y = playAreaYMax; }
+	if (targetPos.x < playAreaXMin) { targetPos.x = playAreaXMin; }
+	if (targetPos.x > playAreaXMax) { targetPos.x = playAreaXMax; }
+
+
+	enemyEntity->targetTilePos = targetPos;
+	enemyEntity->pathsize = 1;
+
+}
+
 void UpdateDrawFrame(void* v_state) {
 
 
@@ -509,29 +548,43 @@ void UpdateDrawFrame(void* v_state) {
 
 	state->cursTilePos = screenXYtoMapTileXY(mousePos.x / state->renderParams.scale, mousePos.y / state->renderParams.scale, state->renderParams);
 
-	int playAreaYMin = 6;
-	int playAreaYMax = 16;
-	if (state->cursTilePos.y < playAreaYMin) state->cursTilePos.y = playAreaYMin;
-	if (state->cursTilePos.y > playAreaYMax) state->cursTilePos.y = playAreaYMax;
-	int playAreaXMin = 1;
-	int playAreaXMax = 25;
-	if (state->cursTilePos.x < playAreaXMin) state->cursTilePos.x = playAreaXMin;
-	if (state->cursTilePos.x > playAreaXMax) state->cursTilePos.x = playAreaXMax;
+	int playAreaYMin = state->playArea.y;
+	int playAreaYMax = state->playArea.y + state->playArea.height;
+	int playAreaXMin = state->playArea.x;
+	int playAreaXMax = state->playArea.x + state->playArea.width;
+	if (state->cursTilePos.y < playAreaYMin) { state->cursTilePos.y = playAreaYMin; }
+	if (state->cursTilePos.y > playAreaYMax) { state->cursTilePos.y = playAreaYMax; }
+	if (state->cursTilePos.x < playAreaXMin) { state->cursTilePos.x = playAreaXMin; }
+	if (state->cursTilePos.x > playAreaXMax) { state->cursTilePos.x = playAreaXMax; }
 
-	int cursorYScreen = mapTileXYtoScreenXY(state->cursTilePos.x, state->cursTilePos.y, state->renderParams).y;
-	int screenCenter = (state->baseSizeY / 2);
-	int cursorScreenCenterDist = abs(screenCenter - cursorYScreen);
-	int scrollSpeed = 4;
-	if (cursorScreenCenterDist < scrollSpeed) {
-		scrollSpeed = cursorScreenCenterDist;
+	int cursorYScreen = mousePos.y / state->renderParams.scale;
+
+	int scrollUpThreshold = state->baseSizeY / 8;
+	int scrollDownThreshold = state->baseSizeY - scrollUpThreshold;
+
+	int basescrollSpeed = 6;
+	int scrollSpeed = 0;
+	if (cursorYScreen < scrollUpThreshold) {
+		int cursorthresholdDist = abs(scrollUpThreshold - cursorYScreen);
+		if (cursorthresholdDist < basescrollSpeed) {
+			scrollSpeed = cursorthresholdDist;
+		}
+		else {
+			scrollSpeed = basescrollSpeed;
+		}
+	}
+	if (cursorYScreen > scrollDownThreshold) {
+		int cursorthresholdDist = abs(scrollDownThreshold - cursorYScreen);
+		if (cursorthresholdDist < basescrollSpeed) {
+			scrollSpeed = -cursorthresholdDist;
+		}
+		else {
+			scrollSpeed = -basescrollSpeed;
+		}
+
 	}
 
-	if (cursorYScreen < screenCenter) {
-		state->smoothScrollY += scrollSpeed;
-	}
-	if (cursorYScreen > screenCenter) {
-		state->smoothScrollY -= scrollSpeed;
-	}
+	state->smoothScrollY += scrollSpeed;
 
 	int maxScroll = (state->map.height - state->baseSizeY) * state->scale;
 	if (state->smoothScrollY > maxScroll) {
@@ -542,12 +595,6 @@ void UpdateDrawFrame(void* v_state) {
 	}
 
 	state->renderParams.smoothScrollY = state->smoothScrollY;
-
-	if (state->curTurn != state->prevTurn) {
-		state->prevTurn = state->curTurn;
-
-		//Do the AI stuff here
-	}
 
 	if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
 
@@ -561,13 +608,25 @@ void UpdateDrawFrame(void* v_state) {
 		state->playerEnt.eState = MOVING;
 		state->playerEnt.movePathIdx = 0;
 	}
-	
-
 
 	if (updateEntityMovement(&state->playerEnt, state->mapSizeX)) {
 		state->curTurn += 1;
 	}
-	
+
+	if (state->curTurn != state->prevTurn) {
+		state->prevTurn = state->curTurn;
+
+		for (int i = 0; i < state->enemiesSize; i += 1) {
+			calculateEnemyTurn(&state->enemies[i], state->playerEnt, state->playArea);
+		}
+
+	}
+
+	for (int i = 0; i < state->enemiesSize; i += 1) {
+		updateEntityMovement(&state->enemies[i], state->mapSizeX);
+	}
+
+
 
 	BeginDrawing();
 
@@ -599,8 +658,13 @@ void UpdateDrawFrame(void* v_state) {
 		DrawTextureRec(state->ui, pathEndRec, (struct Vector2) { pathEndPixel.x - centOff, pathEndPixel.y - centOff }, WHITE);
 	}
 
-
+	//PLAYER
 	renderEntity(state->playerEnt, state->renderParams, state->ent);
+
+
+	for (int i = 0; i < state->enemiesSize; i+=1) {
+		renderEntity(state->enemies[i], state->renderParams, state->ent);
+	}
 
 
 	EndTextureMode();
@@ -624,6 +688,53 @@ void UpdateDrawFrame(void* v_state) {
 	EndDrawing();
 }
 
+iVec2 getRandPosInPlayArea(Rectangle playArea) {
+
+	int playAreaXMin = playArea.x;
+	int playAreaXMax = playArea.x + playArea.width;
+	int playAreaYMin = playArea.y;
+	int playAreaYMax = playArea.y + playArea.height;
+
+	int randX = GetRandomValue(playAreaXMin, playAreaXMax);
+	int randY = GetRandomValue(playAreaYMin, playAreaYMax);
+	
+	return (struct iVec2) { randX, randY };
+}
+
+void populateEnemies(Rectangle playArea, Entity* entityArr, int entityArrLen) {
+
+	for (int i = 0; i < entityArrLen; i+=1) {
+		entityArr[i].aniFrame = 0;
+		entityArr[i].baseTexSource = (struct Rectangle){ 0.0f, 16.0f, 16.0f, 16.0f }; //ORC
+		entityArr[i].eState = IDLE;
+		entityArr[i].movePathIdx = 0;
+		entityArr[i].moveSpeed = 0.05f;
+		entityArr[i].pathsize = 0;
+
+		iVec2 randPos = getRandPosInPlayArea(playArea);
+		bool collision = true;
+		while (collision) {
+			int j;
+			for (j = 0; j < i; j+=1) {
+				if (randPos.x == entityArr[j].tilePos.x && randPos.y == entityArr[j].tilePos.y) {
+					break;
+				}
+			}
+			if (j == i) {
+				collision = false;
+			}
+			else {
+				randPos = getRandPosInPlayArea(playArea);
+			}
+			
+		}
+
+		entityArr[i].tilePos = randPos;
+		entityArr[i].targetTilePos = entityArr[i].tilePos;
+		entityArr[i].worldPos = (struct Vector2){ randPos.x,randPos.y};
+	}
+}
+
 int main(void) {
 
 	State state;
@@ -643,14 +754,26 @@ int main(void) {
 	state.playerEnt.pathsize = 0;
 	state.playerEnt.movePathIdx = 0;
 	state.playerEnt.baseTexSource = (struct Rectangle){ 0.0f, 0.0f, 16.0f, 16.0f };
+	state.playerEnt.eState = IDLE;
+	state.curTurn = 0;
+	state.prevTurn = 0;
 
 	state.mapData = LoadFileData("resources/respitetest.rspb", &state.mapDataSize);
 	state.mapSizeX = 27;
 	state.mapSizeY = 19;
 
+	state.playArea.y = 6;
+	state.playArea.height = 10;
+	state.playArea.x = 1;
+	state.playArea.width = 24;
+
+	state.enemiesSize = 10;
+	
 	InitWindow(state.screenWidth, state.screenHeight, "BlackVault - Descent");
 
+	populateEnemies(state.playArea, state.enemies, state.enemiesSize);
 
+	SetRandomSeed(100);
 	state.map = LoadTexture("resources/map.png");
 	state.ui = LoadTexture("resources/UI.png");
 	state.ent = LoadTexture("resources/entities.png");
@@ -663,9 +786,7 @@ int main(void) {
 
 	state.renderParams = (RenderParams){ state.baseSizeX ,state.baseSizeY,state.map.width,state.map.height,state.tileSize,state.smoothScrollY,state.scale };
 
-	state.playerEnt.eState = IDLE;
-
-	SetTargetFPS(60);               // Set our game to run at 60 frames-per-second
+	
 	//--------------------------------------------------------------------------------------
 
 #if defined(PLATFORM_WEB)
