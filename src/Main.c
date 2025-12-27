@@ -2,7 +2,6 @@
 #include "rlgl.h"
 #include "raymath.h"
 #include <stdlib.h>
-#include <float.h>
 
 #if defined(PLATFORM_WEB)
 #define CUSTOM_MODAL_DIALOGS            // Force custom modal dialogs usage
@@ -173,50 +172,35 @@ int hDistNodes(int start, int end, int mapSizeX) {
 	return abs(endPos.x - startPos.x) + abs(endPos.y - startPos.y);
 }
 
-int getNeighbour(int tileIdx, int dir, int mapSizeX, int mapSizeY) {
-	int i = tileIdx;
-	if (dir == 0) {
-		//North
-		if (i + mapSizeX < (mapSizeX * mapSizeY)) {
-			return i + mapSizeX;
-		}
-		else {
-			return -1;
-		}
+static int getNeighbour(int node, int dir, int mapSizeX, int mapSizeY) {
+
+	//TODO: update function to handle inbounds, but inaccessible tiles
+
+	int x = node % mapSizeX;
+	int y = node / mapSizeX;
+
+	if (dir == 0) {      // North
+		y++;
+	}
+	else if (dir == 1) { // East
+		x++;
+	}
+	else if (dir == 2) { // South
+		y--;
+	}
+	else if (dir == 3) { // West
+		x--;
+	}
+	else {
+		return -1;  // Invalid direction
 	}
 
-	if (dir == 1) {
-		//East
-		if ((i / mapSizeX) == ((i + 1) / mapSizeX)) {
-			return i + 1;
-		}
-		else {
-			return -1;
-		}
+	// Check bounds
+	if (x < 0 || x >= mapSizeX || y < 0 || y >= mapSizeY) {
+		return -1;
 	}
 
-	if (dir == 2) {
-		//West
-		if ((i / mapSizeX) == ((i - 1) / mapSizeX)) {
-			return i - 1;
-		}
-		else {
-			return -1;
-		}
-
-	}
-
-	if (dir == 3) {
-		//South
-		if (i - mapSizeX >= 0) {
-			return i - mapSizeX;
-		}
-		else {
-			return -1;
-		}
-	}
-
-	return -2;
+	return y * mapSizeX + x;
 }
 
 int findAsPath(iVec2 startTile, iVec2 endTile, unsigned char* mapData, int* path, int pathMaxSize) {
@@ -228,7 +212,7 @@ int findAsPath(iVec2 startTile, iVec2 endTile, unsigned char* mapData, int* path
 	int end = endTile.y * mapSizeX + endTile.x;
 
 	int mapDataSizeInt = mapSizeX * mapSizeY;
-	int mapDataSizeByte = mapDataSizeInt * sizeof(int);
+	int mapDataSizeByte = mapDataSizeInt * sizeof(mapDataSizeInt);
 	int totalDataSizeByte = mapDataSizeByte * 4;
 
 	int* aStarData = malloc(totalDataSizeByte);
@@ -525,6 +509,8 @@ void calculateEnemyTurn(Entity* enemyEntity, Entity player, const Entity * const
 
 		//check here is there is already a entity in the target tile
 		//if there is continue
+
+		//TODO: update this logic to use a pathing algorithm to determine which tile will be best to move towards to get access to the player for attacking
 		if (player.targetTilePos.x == candidate.x && player.targetTilePos.y == candidate.y) {
 			continue;
 		}
@@ -552,6 +538,21 @@ void calculateEnemyTurn(Entity* enemyEntity, Entity player, const Entity * const
 	enemyEntity->targetTilePos = bestTarget;
 	enemyEntity->pathsize = 1;  // Move to this single target tile
 
+}
+
+int tileOccupiedByEnemy(iVec2 tile, const  Entity* const OtherEnemies, int enemiesLen) {
+	for (int i = 0; i < enemiesLen; i+=1) {
+		if (OtherEnemies[i].targetTilePos.x == tile.x && OtherEnemies[i].targetTilePos.y == tile.y) {
+			return i;
+		}
+	}
+	return -1;
+}
+
+int swapAndDropEnemy(int dropIdx, Entity* Enemies, int enemiesLen) {
+	Enemies[dropIdx] = Enemies[enemiesLen - 1];
+	enemiesLen -= 1;
+	return enemiesLen;
 }
 
 void UpdateDrawFrame(void* v_state) {
@@ -628,6 +629,14 @@ void UpdateDrawFrame(void* v_state) {
 
 	if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
 
+		//TODO: Check if the clicked square contains an enemy, if it does set that as the attack target
+		//if the enemy is adjacent then attack, otherwise move towards it
+		int enemyIdxOccupy = tileOccupiedByEnemy(state->cursTilePos, &state->enemies, state->enemiesLen);
+		if (enemyIdxOccupy != -1) {
+			int newEnemiesLen = swapAndDropEnemy(enemyIdxOccupy, &state->enemies, state->enemiesLen);
+			state->enemiesLen = newEnemiesLen;
+		}
+
 		if (state->playerEnt.movePathIdx < state->playerEnt.pathsize) {
 			state->playerEnt.pathsize = findAsPath(state->playerEnt.targetTilePos, state->cursTilePos, state->mapData, state->playerEnt.path, 200);
 		}
@@ -640,7 +649,16 @@ void UpdateDrawFrame(void* v_state) {
 	}
 
 	if (updateEntityMovement(&state->playerEnt, state->mapSizeX)) {
-		state->curTurn += 1;
+
+		int enemyIdxOccupy = tileOccupiedByEnemy(state->playerEnt.targetTilePos, &state->enemies, state->enemiesLen);
+		if (enemyIdxOccupy != -1) {
+			state->playerEnt.eState = IDLE;
+			state->playerEnt.pathsize = 0;
+			state->playerEnt.movePathIdx = 0;
+			state->playerEnt.targetTilePos = state->playerEnt.tilePos;
+		} else {
+			state->curTurn += 1;
+		}
 	}
 
 	if (state->curTurn != state->prevTurn) {
