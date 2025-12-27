@@ -78,6 +78,8 @@ typedef struct State {
 	int curTurn;
 	int prevTurn;
 
+	double nextTurnTime;
+	double turnDuration;
 
 }State;
 
@@ -155,8 +157,8 @@ int calcTileMoveCost(unsigned int tileData) {
 	return moveCost;
 }
 
-int mapXYtoIdx(unsigned char x, unsigned char y, unsigned char* mapData) {
-	unsigned char width = mapData[0];
+int mapXYtoIdx(unsigned char x, unsigned char y, int mapWidth) {
+	unsigned char width = mapWidth;
 	return y * width + x;
 }
 
@@ -260,11 +262,13 @@ int findAsPath(iVec2 startTile, iVec2 endTile, unsigned char* mapData, int* path
 			if (skip < 0) {
 				skip = 0;
 			}
-			int writeIdx = pathSize - 1;
+			int writeIdx = pathSize - 1; //Additional -1 because we don't want the start tile
 			while (1) {
+
 				if (skip) {
 					skip -= 1;
 				}
+
 				else {
 					path[writeIdx] = curIdx;
 				}
@@ -272,6 +276,7 @@ int findAsPath(iVec2 startTile, iVec2 endTile, unsigned char* mapData, int* path
 				if (curIdx == start) {
 					break;
 				}
+
 				curIdx = cameFromIdx[curIdx];
 				writeIdx -= 1;
 			}
@@ -340,6 +345,8 @@ int findAsPath(iVec2 startTile, iVec2 endTile, unsigned char* mapData, int* path
 }
 
 
+
+
 int moveEntity(Entity* entity) {
 
 	//if we are at the target return
@@ -368,9 +375,7 @@ int moveEntity(Entity* entity) {
 
 bool updateEntityMovement(Entity* entity, int mapSizeX) {
 	bool movingToNewTile = false;
-
 	if (moveEntity(entity)) {
-		entity->movePathIdx += 1;
 		if (entity->movePathIdx >= entity->pathsize) {
 			// FINISHED MOVING THROUGH PATH
 			entity->movePathIdx = 0;
@@ -378,9 +383,8 @@ bool updateEntityMovement(Entity* entity, int mapSizeX) {
 			entity->eState = IDLE;
 		}
 		else {
+			//update the targetTile
 			entity->targetTilePos = mapIdxToXY(entity->path[entity->movePathIdx], mapSizeX);
-			movingToNewTile = true; 
-			//Right now this hinges on the fact the path always starts at the current location to ensure all turns happen concurrently
 		}
 	}
 	
@@ -483,7 +487,7 @@ float iVec2fDistance(iVec2 v1, iVec2 v2) {
 	return result;
 }
 
-void calculateEnemyTurn(Entity* enemyEntity, Entity player, const Entity * const OtherEnemies,int enemiesLen, Rectangle playArea) {
+void calculateEnemyTurn(Entity* enemyEntity, Entity player, const Entity * const OtherEnemies,int enemiesLen, Rectangle playArea, int mapSizeX) {
 	
 
 	// Choose the adjacent tile closest to the player
@@ -537,6 +541,7 @@ void calculateEnemyTurn(Entity* enemyEntity, Entity player, const Entity * const
 	// If no better move found, bestTarget remains current position (stays put)
 	enemyEntity->targetTilePos = bestTarget;
 	enemyEntity->pathsize = 1;  // Move to this single target tile
+	enemyEntity->path[0] = mapXYtoIdx(bestTarget.x, bestTarget.y, mapSizeX);
 
 }
 
@@ -644,19 +649,34 @@ void UpdateDrawFrame(void* v_state) {
 			state->playerEnt.pathsize = findAsPath(state->playerEnt.tilePos, state->cursTilePos, state->mapData, state->playerEnt.path, 200);
 			state->playerEnt.targetTilePos = mapIdxToXY(state->playerEnt.path[0], state->mapSizeX);
 		}
-		state->playerEnt.eState = MOVING;
 		state->playerEnt.movePathIdx = 0;
+		state->playerEnt.eState = MOVING;
+		
 	}
 
 	if (updateEntityMovement(&state->playerEnt, state->mapSizeX)) {
 
-		int enemyIdxOccupy = tileOccupiedByEnemy(state->playerEnt.targetTilePos, &state->enemies, state->enemiesLen);
-		if (enemyIdxOccupy != -1) {
-			state->playerEnt.eState = IDLE;
-			state->playerEnt.pathsize = 0;
-			state->playerEnt.movePathIdx = 0;
-			state->playerEnt.targetTilePos = state->playerEnt.tilePos;
-		} else {
+		//int enemyIdxOccupy = tileOccupiedByEnemy(state->playerEnt.targetTilePos, &state->enemies, state->enemiesLen);
+		//if (enemyIdxOccupy != -1) {
+		//	state->playerEnt.eState = IDLE;
+		//	state->playerEnt.pathsize = 0;
+		//	state->playerEnt.movePathIdx = 0;
+		//	state->playerEnt.targetTilePos = state->playerEnt.tilePos;
+		//}
+	}
+
+	if (GetTime() > state->nextTurnTime) {
+
+		if (state->playerEnt.eState == MOVING) {
+			state->playerEnt.tilePos = state->playerEnt.targetTilePos;
+			state->playerEnt.movePathIdx += 1;
+			if (state->playerEnt.movePathIdx >= state->playerEnt.pathsize) {
+				state->playerEnt.eState = IDLE;
+			}
+		}
+
+		if (state->playerEnt.eState != IDLE) {
+			state->nextTurnTime = GetTime() + state->turnDuration;
 			state->curTurn += 1;
 		}
 	}
@@ -665,7 +685,7 @@ void UpdateDrawFrame(void* v_state) {
 		state->prevTurn = state->curTurn;
 
 		for (int i = 0; i < state->enemiesLen; i += 1) {
-			calculateEnemyTurn(&state->enemies[i], state->playerEnt,&state->enemies,state->enemiesLen, state->playArea);
+			calculateEnemyTurn(&state->enemies[i], state->playerEnt,&state->enemies,state->enemiesLen, state->playArea,state->mapSizeX);
 		}
 
 	}
@@ -756,7 +776,7 @@ void populateEnemies(Rectangle playArea, Entity* entityArr, int entityArrLen) {
 		entityArr[i].baseTexSource = (struct Rectangle){ 0.0f, 16.0f, 16.0f, 16.0f }; //ORC
 		entityArr[i].eState = IDLE;
 		entityArr[i].movePathIdx = 0;
-		entityArr[i].moveSpeed = 0.05f;
+		entityArr[i].moveSpeed = 1.0f/60.0f;
 		entityArr[i].pathsize = 0;
 
 		iVec2 randPos = getRandPosInPlayArea(playArea);
@@ -798,7 +818,7 @@ int main(void) {
 	state.screenHeight = state.baseSizeY * state.scale - state.scale;
 
 	state.cursTilePos = (iVec2){ 13,8 };
-	state.playerEnt = (Entity){ (struct iVec2) { 13,8 },(struct Vector2) { 13.0f,8.0f },(struct iVec2) { 13,8 }, 0.05f };
+	state.playerEnt = (Entity){ (struct iVec2) { 13,8 },(struct Vector2) { 13.0f,8.0f },(struct iVec2) { 13,8 }, 1.0f / 60.0f };
 	state.playerEnt.pathsize = 0;
 	state.playerEnt.movePathIdx = 0;
 	state.playerEnt.baseTexSource = (struct Rectangle){ 0.0f, 0.0f, 16.0f, 16.0f };
@@ -816,6 +836,9 @@ int main(void) {
 	state.playArea.width = 24;
 
 	state.enemiesLen = 10;
+
+	state.nextTurnTime = 0.0f;
+	state.turnDuration = 1.0f;
 	
 	InitWindow(state.screenWidth, state.screenHeight, "BlackVault - Descent");
 
