@@ -375,19 +375,7 @@ int moveEntity(Entity* entity) {
 
 bool updateEntityMovement(Entity* entity, int mapSizeX) {
 	bool movingToNewTile = false;
-	if (moveEntity(entity)) {
-		if (entity->movePathIdx >= entity->pathsize) {
-			// FINISHED MOVING THROUGH PATH
-			entity->movePathIdx = 0;
-			entity->pathsize = 0;
-			entity->eState = IDLE;
-		}
-		else {
-			//update the targetTile
-			entity->targetTilePos = mapIdxToXY(entity->path[entity->movePathIdx], mapSizeX);
-		}
-	}
-	
+	moveEntity(entity);
 	return movingToNewTile;
 }
 
@@ -560,6 +548,18 @@ int swapAndDropEnemy(int dropIdx, Entity* Enemies, int enemiesLen) {
 	return enemiesLen;
 }
 
+void updateEntityPath(Entity* entity, int mapSizeX) {
+	entity->movePathIdx += 1;
+	if (entity->movePathIdx >= entity->pathsize) {
+		entity->movePathIdx = 0;
+		entity->pathsize = 0;
+		entity->eState = IDLE;
+	}
+	else {
+		entity->targetTilePos = mapIdxToXY(entity->path[entity->movePathIdx], mapSizeX);
+	}
+}
+
 void UpdateDrawFrame(void* v_state) {
 
 
@@ -654,6 +654,50 @@ void UpdateDrawFrame(void* v_state) {
 		
 	}
 
+
+
+	if (GetTime() > state->nextTurnTime) {
+
+		//Do the player turn logic in here, then increment the cur Turn to allow other entities to have their turn
+
+		if (state->playerEnt.eState == MOVING) {
+			//NOTE: The return from the aStarPath includes the current tile as the start
+			//		So when the player switches from IDLE to MOVING the first time through here
+			//		just increments the index and syncs the turn movement of other entities
+
+			//Make sure the player is at the target tile by the start of a new turn
+			state->playerEnt.tilePos = state->playerEnt.targetTilePos; 
+			state->playerEnt.worldPos.x = state->playerEnt.targetTilePos.x;
+			state->playerEnt.worldPos.y = state->playerEnt.targetTilePos.y;
+
+			updateEntityPath(&state->playerEnt, state->mapSizeX);
+
+		}
+
+		if (state->playerEnt.eState != IDLE) {
+			state->nextTurnTime = GetTime() + state->turnDuration;
+			state->curTurn += 1;
+
+			//TODO: Maybe we can just do all the turn update here??
+		}
+	}
+
+	if (state->curTurn != state->prevTurn) {
+		state->prevTurn = state->curTurn;
+
+		//All non-player entity turn logic happens here
+
+		//Probably want to do the same as in the player logic where we sync all the entities to their prev target as the turn has ended
+
+		for (int i = 0; i < state->enemiesLen; i += 1) {
+			calculateEnemyTurn(&state->enemies[i], state->playerEnt,&state->enemies,state->enemiesLen, state->playArea,state->mapSizeX);
+		}
+
+	}
+
+	//NON GAME LOGIC UPDATES
+	//UPDATE ENTITY WORLD POSITIONS AND ANIMATION FOR RENDERING
+
 	if (updateEntityMovement(&state->playerEnt, state->mapSizeX)) {
 
 		//int enemyIdxOccupy = tileOccupiedByEnemy(state->playerEnt.targetTilePos, &state->enemies, state->enemiesLen);
@@ -663,31 +707,6 @@ void UpdateDrawFrame(void* v_state) {
 		//	state->playerEnt.movePathIdx = 0;
 		//	state->playerEnt.targetTilePos = state->playerEnt.tilePos;
 		//}
-	}
-
-	if (GetTime() > state->nextTurnTime) {
-
-		if (state->playerEnt.eState == MOVING) {
-			state->playerEnt.tilePos = state->playerEnt.targetTilePos;
-			state->playerEnt.movePathIdx += 1;
-			if (state->playerEnt.movePathIdx >= state->playerEnt.pathsize) {
-				state->playerEnt.eState = IDLE;
-			}
-		}
-
-		if (state->playerEnt.eState != IDLE) {
-			state->nextTurnTime = GetTime() + state->turnDuration;
-			state->curTurn += 1;
-		}
-	}
-
-	if (state->curTurn != state->prevTurn) {
-		state->prevTurn = state->curTurn;
-
-		for (int i = 0; i < state->enemiesLen; i += 1) {
-			calculateEnemyTurn(&state->enemies[i], state->playerEnt,&state->enemies,state->enemiesLen, state->playArea,state->mapSizeX);
-		}
-
 	}
 
 	for (int i = 0; i < state->enemiesLen; i += 1) {
