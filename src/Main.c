@@ -20,7 +20,7 @@ enum EntityState { IDLE, MOVING, ATTACKING };
 
 typedef struct Entity {
 	iVec2 tilePos;
-	Vector2 worldPos;
+	Vector2 renderWorldPos;
 	iVec2 targetTilePos;
 	float moveSpeed;
 	enum EntityState eState;
@@ -78,6 +78,7 @@ typedef struct State {
 	int curTurn;
 	int prevTurn;
 
+	double gameTime;
 	double nextTurnTime;
 	double turnDuration;
 
@@ -345,38 +346,22 @@ int findAsPath(iVec2 startTile, iVec2 endTile, unsigned char* mapData, int* path
 }
 
 
+bool updateEntityRenderPos(Entity* entity, double turnDuration, double turnElapsed){
 
-
-int moveEntity(Entity* entity) {
-
-	//if we are at the target return
 	if (entity->tilePos.x == entity->targetTilePos.x
 		&& entity->tilePos.y == entity->targetTilePos.y) {
-		return 1;
+		return false; //Stationary no update required
+		//TODO: Can this be set to check if the Entity State is IDLE?
 	}
 
-	Vector2 target = { entity->targetTilePos.x, entity->targetTilePos.y };
-	Vector2 dir = Vector2Normalize(Vector2Subtract(target, entity->worldPos));
-
-	entity->worldPos = Vector2Add(Vector2Scale(dir, entity->moveSpeed), entity->worldPos);
+	Vector2 start = { entity->tilePos.x, entity->tilePos.y };
+	Vector2 end = { entity->targetTilePos.x, entity->targetTilePos.y };
+	double t = turnElapsed/ turnDuration;
+	entity->renderWorldPos = Vector2Lerp(start, end, t);
 
 	entity->aniFrame += 1;
 
-	if (Vector2Distance(entity->worldPos, target) <= entity->moveSpeed) {
-		entity->tilePos = entity->targetTilePos;
-		entity->worldPos.x = entity->tilePos.x;
-		entity->worldPos.y = entity->tilePos.y;
-		entity->aniFrame = 0;
-	}
-
-	return 0;
-
-}
-
-bool updateEntityMovement(Entity* entity, int mapSizeX) {
-	bool movingToNewTile = false;
-	moveEntity(entity);
-	return movingToNewTile;
+	return true;
 }
 
 void RenderPlayerPath(State* state) {
@@ -452,7 +437,7 @@ void RenderPlayerPath(State* state) {
 
 
 void renderEntity(Entity entity, RenderParams renderParams, Texture2D tex) {
-	iVec2 playerEntityPixelPos = mapWorldXYtoScreenXY(entity.worldPos.x, entity.worldPos.y, renderParams);
+	iVec2 playerEntityPixelPos = mapWorldXYtoScreenXY(entity.renderWorldPos.x, entity.renderWorldPos.y, renderParams);
 
 	bool alternateAnimation = ((int)entity.aniFrame / 10) % 2;
 
@@ -560,6 +545,13 @@ void updateEntityPath(Entity* entity, int mapSizeX) {
 	}
 }
 
+double getTurnElapsedTime(double gameTime, double nextTurnTime, double TurnDuration) {
+	double remainingTime = nextTurnTime - gameTime;
+	double elapsedTime = TurnDuration - remainingTime;
+	if (elapsedTime > TurnDuration) { elapsedTime = TurnDuration; }
+	return elapsedTime;
+}
+
 void UpdateDrawFrame(void* v_state) {
 
 
@@ -567,8 +559,7 @@ void UpdateDrawFrame(void* v_state) {
 
 	State* state = (State*)v_state;
 
-
-
+	state->gameTime = GetTime();
 
 	if (IsKeyReleased(KEY_RIGHT)) state->cursTilePos.x += 1;
 	if (IsKeyReleased(KEY_LEFT)) state->cursTilePos.x -= 1;
@@ -656,26 +647,43 @@ void UpdateDrawFrame(void* v_state) {
 
 
 
-	if (GetTime() > state->nextTurnTime) {
+	if (state->gameTime > state->nextTurnTime) {
+
+		//---------------------------------------------------
+		//BELOW: All the logic to run to end the previous turn
+		//---------------------------------------------------
+
+		//Make sure the player and enemies are the target tile from the end of last turn
+		state->playerEnt.tilePos = state->playerEnt.targetTilePos;
+		state->playerEnt.renderWorldPos.x = state->playerEnt.targetTilePos.x;
+		state->playerEnt.renderWorldPos.y = state->playerEnt.targetTilePos.y;
+
+		for (int i = 0; i < state->enemiesLen; i += 1) {
+
+			state->enemies[i].tilePos = state->enemies[i].targetTilePos;
+			state->enemies[i].renderWorldPos.x = state->enemies[i].targetTilePos.x;
+			state->enemies[i].renderWorldPos.y = state->enemies[i].targetTilePos.y;
+		}
 
 		//Do the player turn logic in here, then increment the cur Turn to allow other entities to have their turn
+
+
+		//-----------------------------------------------------------------
+		//BELOW: Logic to determine if we automatically start the next turn
+		//-----------------------------------------------------------------
 
 		if (state->playerEnt.eState == MOVING) {
 			//NOTE: The return from the aStarPath includes the current tile as the start
 			//		So when the player switches from IDLE to MOVING the first time through here
 			//		just increments the index and syncs the turn movement of other entities
 
-			//Make sure the player is at the target tile by the start of a new turn
-			state->playerEnt.tilePos = state->playerEnt.targetTilePos; 
-			state->playerEnt.worldPos.x = state->playerEnt.targetTilePos.x;
-			state->playerEnt.worldPos.y = state->playerEnt.targetTilePos.y;
 
+			//check the player path to see if we can automatically increment and start a new turn
 			updateEntityPath(&state->playerEnt, state->mapSizeX);
-
 		}
 
 		if (state->playerEnt.eState != IDLE) {
-			state->nextTurnTime = GetTime() + state->turnDuration;
+			state->nextTurnTime = state->gameTime + state->turnDuration;
 			state->curTurn += 1;
 
 			//TODO: Maybe we can just do all the turn update here??
@@ -684,6 +692,9 @@ void UpdateDrawFrame(void* v_state) {
 
 	if (state->curTurn != state->prevTurn) {
 		state->prevTurn = state->curTurn;
+
+
+		
 
 		//All non-player entity turn logic happens here
 
@@ -698,7 +709,11 @@ void UpdateDrawFrame(void* v_state) {
 	//NON GAME LOGIC UPDATES
 	//UPDATE ENTITY WORLD POSITIONS AND ANIMATION FOR RENDERING
 
-	if (updateEntityMovement(&state->playerEnt, state->mapSizeX)) {
+	
+
+	updateEntityRenderPos(&state->playerEnt, state->turnDuration, getTurnElapsedTime(state->gameTime, state->nextTurnTime, state->turnDuration));
+
+	//if (updateEntityMovement(&state->playerEnt, state->mapSizeX)) {
 
 		//int enemyIdxOccupy = tileOccupiedByEnemy(state->playerEnt.targetTilePos, &state->enemies, state->enemiesLen);
 		//if (enemyIdxOccupy != -1) {
@@ -707,10 +722,10 @@ void UpdateDrawFrame(void* v_state) {
 		//	state->playerEnt.movePathIdx = 0;
 		//	state->playerEnt.targetTilePos = state->playerEnt.tilePos;
 		//}
-	}
+	//}
 
 	for (int i = 0; i < state->enemiesLen; i += 1) {
-		updateEntityMovement(&state->enemies[i], state->mapSizeX);
+		updateEntityRenderPos(&state->enemies[i], state->turnDuration, getTurnElapsedTime(state->gameTime, state->nextTurnTime, state->turnDuration));
 	}
 
 
@@ -818,7 +833,7 @@ void populateEnemies(Rectangle playArea, Entity* entityArr, int entityArrLen) {
 
 		entityArr[i].tilePos = randPos;
 		entityArr[i].targetTilePos = entityArr[i].tilePos;
-		entityArr[i].worldPos = (struct Vector2){ randPos.x,randPos.y};
+		entityArr[i].renderWorldPos = (struct Vector2){ randPos.x,randPos.y};
 	}
 }
 
