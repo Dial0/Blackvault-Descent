@@ -16,13 +16,18 @@ typedef struct iVec2 {
 	int y;
 } iVec2;
 
+enum EntityType { PLAYER, ENEMY};
+
 enum EntityState { IDLE, MOVING, ATTACKING };
 
 typedef struct Entity {
+	int id;
+	enum EntityType type;
+
+	char name[32];
 	iVec2 tilePos;
 	Vector2 renderWorldPos;
 	iVec2 targetTilePos;
-	float moveSpeed;
 	enum EntityState eState;
 	int path[200];
 	int pathsize;
@@ -83,6 +88,11 @@ typedef struct State {
 	double turnDuration;
 
 }State;
+
+int getNextID() {
+	static int id = 0;
+	return id++;
+}
 
 //Returns the screenXY of the top left pixel of the tile
 iVec2 mapTileXYtoScreenXY(int MapX, int MapY, RenderParams param) {
@@ -545,12 +555,14 @@ double getTurnElapsedTime(double gameTime, double nextTurnTime, double TurnDurat
 	return elapsedTime;
 }
 
-void setEntityIdleIfPathEnd(Entity* entity) {
+bool setEntityIdleIfPathEnd(Entity* entity) {
 	if (entity->movePathIdx >= (entity->pathsize - 1)) {
 		entity->movePathIdx = 0;
 		entity->pathsize = 0;
 		entity->eState = IDLE;
+		return true;
 	}
+	return false;
 }
 
 void UpdateDrawFrame(void* v_state) {
@@ -661,7 +673,19 @@ void UpdateDrawFrame(void* v_state) {
 		//------------------------------------------------------------------------
 
 		//try to set player to Idle if and stop turns incrementing
-		setEntityIdleIfPathEnd(&state->playerEnt);
+
+		if (!setEntityIdleIfPathEnd(&state->playerEnt)) {
+			//If we didn't idle from reaching the end of the path, check if there is an obstruction in the path
+			//If there is, set to idle, so player can react
+			iVec2 nextTile = mapIdxToXY(state->playerEnt.path[state->playerEnt.movePathIdx + 1], state->mapSizeX);
+			int enemyIdxOccupy = tileOccupiedByEnemy(nextTile, &state->enemies, state->enemiesLen);
+			if (enemyIdxOccupy != -1) {
+				state->playerEnt.eState = IDLE;
+				state->playerEnt.pathsize = 0;
+				state->playerEnt.movePathIdx = 0;
+			}
+		}
+
 
 		//Make sure the player and enemies are the target tile from the end of last turn
 		state->playerEnt.tilePos = state->playerEnt.targetTilePos;
@@ -691,7 +715,11 @@ void UpdateDrawFrame(void* v_state) {
 		state->prevTurn = state->curTurn;
 
 
-		updateEntityPath2(&state->playerEnt, state->mapSizeX);
+		
+		//if (updateEntityMovement(&state->playerEnt, state->mapSizeX)) {
+		updateEntityPath(&state->playerEnt, state->mapSizeX);
+
+
 
 		//All non-player entity turn logic happens here
 
@@ -708,18 +736,10 @@ void UpdateDrawFrame(void* v_state) {
 
 	
 
+
+
+
 	updateEntityRenderPos(&state->playerEnt, state->turnDuration, getTurnElapsedTime(state->gameTime, state->nextTurnTime, state->turnDuration));
-
-	//if (updateEntityMovement(&state->playerEnt, state->mapSizeX)) {
-
-		//int enemyIdxOccupy = tileOccupiedByEnemy(state->playerEnt.targetTilePos, &state->enemies, state->enemiesLen);
-		//if (enemyIdxOccupy != -1) {
-		//	state->playerEnt.eState = IDLE;
-		//	state->playerEnt.pathsize = 0;
-		//	state->playerEnt.movePathIdx = 0;
-		//	state->playerEnt.targetTilePos = state->playerEnt.tilePos;
-		//}
-	//}
 
 	for (int i = 0; i < state->enemiesLen; i += 1) {
 		updateEntityRenderPos(&state->enemies[i], state->turnDuration, getTurnElapsedTime(state->gameTime, state->nextTurnTime, state->turnDuration));
@@ -807,7 +827,6 @@ void populateEnemies(Rectangle playArea, Entity* entityArr, int entityArrLen) {
 		entityArr[i].baseTexSource = (struct Rectangle){ 0.0f, 16.0f, 16.0f, 16.0f }; //ORC
 		entityArr[i].eState = IDLE;
 		entityArr[i].movePathIdx = 0;
-		entityArr[i].moveSpeed = 1.0f/60.0f;
 		entityArr[i].pathsize = 0;
 
 		iVec2 randPos = getRandPosInPlayArea(playArea);
@@ -834,6 +853,36 @@ void populateEnemies(Rectangle playArea, Entity* entityArr, int entityArrLen) {
 	}
 }
 
+Entity initEntity(enum EntityType type, char* name, int namelen, iVec2 tilePos, Rectangle baseTexSource) {
+
+	Entity newEntity;
+
+	newEntity.id = getNextID();
+
+	newEntity.type = type;
+
+	if (namelen > 32) { namelen = 32; }
+	for (int i = 0; i < namelen; i++) {
+		newEntity.name[i] = name[i];
+	}
+
+	newEntity.tilePos = tilePos;
+	newEntity.targetTilePos = tilePos;
+	newEntity.renderWorldPos.x = tilePos.x;
+	newEntity.renderWorldPos.y = tilePos.y;
+
+	newEntity.eState = IDLE;
+
+	newEntity.pathsize = 0;
+	newEntity.movePathIdx = 0;
+	newEntity.aniFrame = 0;
+
+	newEntity.baseTexSource = baseTexSource;
+
+	return newEntity;
+
+}
+
 int main(void) {
 
 	State state;
@@ -849,11 +898,7 @@ int main(void) {
 	state.screenHeight = state.baseSizeY * state.scale - state.scale;
 
 	state.cursTilePos = (iVec2){ 13,8 };
-	state.playerEnt = (Entity){ (struct iVec2) { 13,8 },(struct Vector2) { 13.0f,8.0f },(struct iVec2) { 13,8 }, 1.0f / 60.0f };
-	state.playerEnt.pathsize = 0;
-	state.playerEnt.movePathIdx = 0;
-	state.playerEnt.baseTexSource = (struct Rectangle){ 0.0f, 0.0f, 16.0f, 16.0f };
-	state.playerEnt.eState = IDLE;
+	state.playerEnt = initEntity(PLAYER, "Player", sizeof("Player"), (struct iVec2) { 13, 8 }, (struct Rectangle) { 0.0f, 0.0f, 16.0f, 16.0f });
 	state.curTurn = 0;
 	state.prevTurn = 0;
 
