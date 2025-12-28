@@ -533,16 +533,9 @@ int swapAndDropEnemy(int dropIdx, Entity* Enemies, int enemiesLen) {
 	return enemiesLen;
 }
 
-void updateEntityPath(Entity* entity, int mapSizeX) {
+updateEntityPath(Entity* entity, int mapSizeX) {
 	entity->movePathIdx += 1;
-	if (entity->movePathIdx >= entity->pathsize) {
-		entity->movePathIdx = 0;
-		entity->pathsize = 0;
-		entity->eState = IDLE;
-	}
-	else {
-		entity->targetTilePos = mapIdxToXY(entity->path[entity->movePathIdx], mapSizeX);
-	}
+	entity->targetTilePos = mapIdxToXY(entity->path[entity->movePathIdx], mapSizeX);
 }
 
 double getTurnElapsedTime(double gameTime, double nextTurnTime, double TurnDuration) {
@@ -550,6 +543,14 @@ double getTurnElapsedTime(double gameTime, double nextTurnTime, double TurnDurat
 	double elapsedTime = TurnDuration - remainingTime;
 	if (elapsedTime > TurnDuration) { elapsedTime = TurnDuration; }
 	return elapsedTime;
+}
+
+void setEntityIdleIfPathEnd(Entity* entity) {
+	if (entity->movePathIdx >= (entity->pathsize - 1)) {
+		entity->movePathIdx = 0;
+		entity->pathsize = 0;
+		entity->eState = IDLE;
+	}
 }
 
 void UpdateDrawFrame(void* v_state) {
@@ -645,13 +646,22 @@ void UpdateDrawFrame(void* v_state) {
 		
 	}
 
+	//-------------------------------------------------------------------------------------------
+	//ABOVE: Check all the above input, to see if we kick the player out of IDLE and start a turn
+	//		 from initaiting moving or attacking etc
+	//-------------------------------------------------------------------------------------------
 
 
 	if (state->gameTime > state->nextTurnTime) {
 
-		//---------------------------------------------------
+		//-----------------------------------------------------------------------
 		//BELOW: All the logic to run to end the previous turn
-		//---------------------------------------------------
+		//		 Using this section to finilise any movement and 
+		//		 set states back to IDLE if nothing in the actions/movement queue
+		//------------------------------------------------------------------------
+
+		//try to set player to Idle if and stop turns incrementing
+		setEntityIdleIfPathEnd(&state->playerEnt);
 
 		//Make sure the player and enemies are the target tile from the end of last turn
 		state->playerEnt.tilePos = state->playerEnt.targetTilePos;
@@ -665,22 +675,9 @@ void UpdateDrawFrame(void* v_state) {
 			state->enemies[i].renderWorldPos.y = state->enemies[i].targetTilePos.y;
 		}
 
-		//Do the player turn logic in here, then increment the cur Turn to allow other entities to have their turn
-
-
 		//-----------------------------------------------------------------
 		//BELOW: Logic to determine if we automatically start the next turn
 		//-----------------------------------------------------------------
-
-		if (state->playerEnt.eState == MOVING) {
-			//NOTE: The return from the aStarPath includes the current tile as the start
-			//		So when the player switches from IDLE to MOVING the first time through here
-			//		just increments the index and syncs the turn movement of other entities
-
-
-			//check the player path to see if we can automatically increment and start a new turn
-			updateEntityPath(&state->playerEnt, state->mapSizeX);
-		}
 
 		if (state->playerEnt.eState != IDLE) {
 			state->nextTurnTime = state->gameTime + state->turnDuration;
@@ -694,7 +691,7 @@ void UpdateDrawFrame(void* v_state) {
 		state->prevTurn = state->curTurn;
 
 
-		
+		updateEntityPath2(&state->playerEnt, state->mapSizeX);
 
 		//All non-player entity turn logic happens here
 
