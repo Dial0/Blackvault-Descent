@@ -17,7 +17,10 @@ typedef struct Entity {
 	char name[32];
 	iVec2 tilePos;
 	Vector2 renderWorldPos;
-	iVec2 targetTilePos;
+	iVec2 moveTargetTilePos;
+
+	iVec2 combatTargetTilePos;
+
 	enum EntityState eState;
 	int path[200];
 	int pathsize;

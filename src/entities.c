@@ -13,7 +13,7 @@ Entity initEntity(enum EntityType type, char* name, int namelen, iVec2 tilePos, 
 	}
 
 	newEntity.tilePos = tilePos;
-	newEntity.targetTilePos = tilePos;
+	newEntity.moveTargetTilePos = tilePos;
 	newEntity.renderWorldPos.x = tilePos.x;
 	newEntity.renderWorldPos.y = tilePos.y;
 
@@ -31,18 +31,31 @@ Entity initEntity(enum EntityType type, char* name, int namelen, iVec2 tilePos, 
 
 bool updateEntityRenderPos(Entity* entity, double turnDuration, double turnElapsed) {
 
-	if (entity->tilePos.x == entity->targetTilePos.x
-		&& entity->tilePos.y == entity->targetTilePos.y) {
-		return false; //Stationary no update required
-		//TODO: Can this be set to check if the Entity State is IDLE?
+	if (entity->eState == ATTACKING) {
+		double t = turnElapsed / turnDuration;
+		Vector2 start = { entity->tilePos.x, entity->tilePos.y };
+		Vector2 end = { entity->combatTargetTilePos.x, entity->combatTargetTilePos.y };
+		entity->renderWorldPos = interpolatePingpong(start, end, t);
+		entity->aniFrame += 1;
 	}
 
-	Vector2 start = { entity->tilePos.x, entity->tilePos.y };
-	Vector2 end = { entity->targetTilePos.x, entity->targetTilePos.y };
-	double t = turnElapsed / turnDuration;
-	entity->renderWorldPos = Vector2Lerp(start, end, t);
+	if (entity->eState == MOVING) {
+		if (entity->tilePos.x == entity->moveTargetTilePos.x
+			&& entity->tilePos.y == entity->moveTargetTilePos.y) {
+			return false; //Stationary no update required
+			//TODO: Can this be set to check if the Entity State is IDLE?
+		}
 
-	entity->aniFrame += 1;
+		Vector2 start = { entity->tilePos.x, entity->tilePos.y };
+		Vector2 end = { entity->moveTargetTilePos.x, entity->moveTargetTilePos.y };
+		double t = turnElapsed / turnDuration;
+
+		entity->renderWorldPos = Vector2Lerp(start, end, t);
+
+		entity->aniFrame += 1;
+	}
+
+
 
 	return true;
 }
@@ -55,7 +68,7 @@ int swapAndDropEnemy(int dropIdx, Entity* Enemies, int enemiesLen) {
 
 updateEntityPath(Entity* entity, int mapSizeX) {
 	entity->movePathIdx += 1;
-	entity->targetTilePos = mapIdxToXY(entity->path[entity->movePathIdx], mapSizeX);
+	entity->moveTargetTilePos = mapIdxToXY(entity->path[entity->movePathIdx], mapSizeX);
 }
 
 

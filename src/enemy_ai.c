@@ -177,8 +177,15 @@ int findAsPath(iVec2 startTile, iVec2 endTile, unsigned char* mapData, int* path
 
 void calculateEnemyTurn(Entity* enemyEntity, Entity player, const Entity* const OtherEnemies, int enemiesLen, Rectangle playArea, int mapSizeX) {
 
+
+	if (cardinallyAdjacent(player.moveTargetTilePos, enemyEntity->tilePos)) {
+		enemyEntity->eState = ATTACKING;
+		enemyEntity->combatTargetTilePos = player.moveTargetTilePos;
+		return;
+	}
+
 	// Choose the adjacent tile closest to the player
-	float minDist = iVec2fDistance(player.targetTilePos, enemyEntity->tilePos);
+	float minDist = iVec2fDistance(player.moveTargetTilePos, enemyEntity->tilePos);
 	iVec2 bestTarget = enemyEntity->tilePos;
 
 	const iVec2 offsets[4] = {
@@ -202,13 +209,13 @@ void calculateEnemyTurn(Entity* enemyEntity, Entity player, const Entity* const 
 		//if there is continue
 
 		//TODO: update this logic to use a pathing algorithm to determine which tile will be best to move towards to get access to the player for attacking
-		if (player.targetTilePos.x == candidate.x && player.targetTilePos.y == candidate.y) {
+		if (player.moveTargetTilePos.x == candidate.x && player.moveTargetTilePos.y == candidate.y) {
 			continue;
 		}
 
 		bool collision = false;
 		for (int i = 0; i < enemiesLen; i++) {
-			if (OtherEnemies[i].targetTilePos.x == candidate.x && OtherEnemies[i].targetTilePos.y == candidate.y) {
+			if (OtherEnemies[i].moveTargetTilePos.x == candidate.x && OtherEnemies[i].moveTargetTilePos.y == candidate.y) {
 				collision = true;
 			}
 		}
@@ -217,16 +224,17 @@ void calculateEnemyTurn(Entity* enemyEntity, Entity player, const Entity* const 
 			continue;
 		}
 
-		float dist = iVec2fDistance(player.targetTilePos, candidate);
+		float dist = iVec2fDistance(player.moveTargetTilePos, candidate);
 
 		if (dist < minDist) {
 			minDist = dist;
 			bestTarget = candidate;
+			enemyEntity->eState = MOVING;
 		}
 	}
 
 	// If no better move found, bestTarget remains current position (stays put)
-	enemyEntity->targetTilePos = bestTarget;
+	enemyEntity->moveTargetTilePos = bestTarget;
 	enemyEntity->pathsize = 1;  // Move to this single target tile
 	enemyEntity->path[0] = mapXYtoIdx(bestTarget.x, bestTarget.y, mapSizeX);
 

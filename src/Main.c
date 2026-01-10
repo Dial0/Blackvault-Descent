@@ -19,7 +19,7 @@
 
 int tileOccupiedByEnemy(iVec2 tile, const  Entity* const OtherEnemies, int enemiesLen) {
 	for (int i = 0; i < enemiesLen; i+=1) {
-		if (OtherEnemies[i].targetTilePos.x == tile.x && OtherEnemies[i].targetTilePos.y == tile.y) {
+		if (OtherEnemies[i].moveTargetTilePos.x == tile.x && OtherEnemies[i].moveTargetTilePos.y == tile.y) {
 			return i;
 		}
 	}
@@ -112,11 +112,11 @@ void UpdateDrawFrame(void* v_state) {
 		}
 
 		if (state->playerEnt.movePathIdx < state->playerEnt.pathsize) {
-			state->playerEnt.pathsize = findAsPath(state->playerEnt.targetTilePos, state->cursTilePos, state->mapData, state->playerEnt.path, 200);
+			state->playerEnt.pathsize = findAsPath(state->playerEnt.moveTargetTilePos, state->cursTilePos, state->mapData, state->playerEnt.path, 200);
 		}
 		else {
 			state->playerEnt.pathsize = findAsPath(state->playerEnt.tilePos, state->cursTilePos, state->mapData, state->playerEnt.path, 200);
-			state->playerEnt.targetTilePos = mapIdxToXY(state->playerEnt.path[0], state->mapSizeX);
+			state->playerEnt.moveTargetTilePos = mapIdxToXY(state->playerEnt.path[0], state->mapSizeX);
 		}
 		state->playerEnt.movePathIdx = 0;
 		state->playerEnt.eState = MOVING;
@@ -153,15 +153,16 @@ void UpdateDrawFrame(void* v_state) {
 
 
 		//Make sure the player and enemies are the target tile from the end of last turn
-		state->playerEnt.tilePos = state->playerEnt.targetTilePos;
-		state->playerEnt.renderWorldPos.x = state->playerEnt.targetTilePos.x;
-		state->playerEnt.renderWorldPos.y = state->playerEnt.targetTilePos.y;
+		state->playerEnt.tilePos = state->playerEnt.moveTargetTilePos;
+		state->playerEnt.renderWorldPos.x = state->playerEnt.moveTargetTilePos.x;
+		state->playerEnt.renderWorldPos.y = state->playerEnt.moveTargetTilePos.y;
 
 		for (int i = 0; i < state->enemiesLen; i += 1) {
 
-			state->enemies[i].tilePos = state->enemies[i].targetTilePos;
-			state->enemies[i].renderWorldPos.x = state->enemies[i].targetTilePos.x;
-			state->enemies[i].renderWorldPos.y = state->enemies[i].targetTilePos.y;
+			state->enemies[i].tilePos = state->enemies[i].moveTargetTilePos;
+			state->enemies[i].renderWorldPos.x = state->enemies[i].moveTargetTilePos.x;
+			state->enemies[i].renderWorldPos.y = state->enemies[i].moveTargetTilePos.y;
+			state->enemies[i].eState = IDLE;
 		}
 
 		//-----------------------------------------------------------------
@@ -240,7 +241,7 @@ void populateEnemies(Rectangle playArea, Entity* entityArr, int entityArrLen) {
 		}
 
 		entityArr[i].tilePos = randPos;
-		entityArr[i].targetTilePos = entityArr[i].tilePos;
+		entityArr[i].moveTargetTilePos = entityArr[i].tilePos;
 		entityArr[i].renderWorldPos = (struct Vector2){ randPos.x,randPos.y};
 	}
 }
@@ -278,7 +279,7 @@ int main(void) {
 	state.enemiesLen = 10;
 
 	state.nextTurnTime = 0.0f;
-	state.turnDuration = 1.0f;
+	state.turnDuration = 0.6f;
 
 	populateEnemies(state.playArea, state.enemies, state.enemiesLen);
 

@@ -100,10 +100,15 @@ iVec2 getRandPosInPlayArea(Rectangle playArea) {
 }
 
 
-Vector2 interpolate_pingpong(Vector2 start, Vector2 end, float t) {
+Vector2 interpolatePingpong(Vector2 start, Vector2 end, float t) {
 	Vector2 result;
 	float abs_progress = fabsf(2.0f * t - 1.0f);
 	result.x = (start.x + end.x) * 0.5f + (start.x - end.x) * 0.5f * abs_progress;
 	result.y = (start.y + end.y) * 0.5f + (start.y - end.y) * 0.5f * abs_progress;
 	return result;
+}
+
+
+bool cardinallyAdjacent(iVec2 Tile1, iVec2 Tile2) {
+	return (abs(Tile1.x - Tile2.x) + abs(Tile1.y - Tile2.y) == 1);
 }
