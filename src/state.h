@@ -1,9 +1,3 @@
-#pragma once
-#include "raylib.h"
-
-Font font;
-int fontSize = 15;
-
 typedef struct RenderParams {
 	int mapViewPortWidth;
 	int mapViewPortHeight;
@@ -51,5 +45,8 @@ typedef struct State {
 	int curTurn;
 	int prevTurn;
 
+	double gameTime;
+	double nextTurnTime;
+	double turnDuration;
 
 }State;

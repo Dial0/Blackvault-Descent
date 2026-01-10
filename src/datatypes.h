@@ -1,12 +1,23 @@
-#pragma once
-#include "raylib.h"
+Font font;
+int fontSize = 15;
+
+typedef struct iVec2 {
+	int x;
+	int y;
+} iVec2;
+
+enum EntityType { PLAYER, ENEMY };
+
 enum EntityState { IDLE, MOVING, ATTACKING };
 
 typedef struct Entity {
+	int id;
+	enum EntityType type;
+
+	char name[32];
 	iVec2 tilePos;
-	Vector2 worldPos;
+	Vector2 renderWorldPos;
 	iVec2 targetTilePos;
-	float moveSpeed;
 	enum EntityState eState;
 	int path[200];
 	int pathsize;
@@ -14,3 +25,4 @@ typedef struct Entity {
 	int aniFrame;
 	Rectangle baseTexSource;
 } Entity;
+
