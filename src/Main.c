@@ -111,6 +111,8 @@ void UpdateDrawFrame(void* v_state) {
 			//int newEnemiesLen = swapAndDropEnemy(enemyIdxOccupy, &state->enemies, state->enemiesLen);
 			//state->enemiesLen = newEnemiesLen;
 			state->playerEnt.nextTurnState = ATTACKING;
+			//TODO: Set this to next turn target? or find a way to only update the target at the start of next turn?
+			//Maybe when we create the animation we make a copy to the target tile and then don't update it till next turn?
 			state->playerEnt.combatTargetTilePos = state->cursTilePos;
 		}
 		else {

@@ -6,13 +6,40 @@ typedef struct iVec2 {
 	int y;
 } iVec2;
 
-enum EntityType { PLAYER, ENEMY };
+typedef enum { PLAYER, ENEMY } EntityType;
 
-enum EntityState { IDLE, MOVING, INITIATE_ATTACK, ATTACKING };
+typedef enum { IDLE, MOVING, ATTACKING } EntityActionState;
+
+typedef enum {ANIM_IDLE, ANIM_MOVING, ANIM_ATTACKING} EntityAnimType;
+
+typedef struct {
+	int dummy;
+} IDLE_ANIMATION;
+
+typedef struct {
+	iVec2 start;
+	iVec2 end;
+} MOVING_ANIMATION;
+
+typedef struct {
+	iVec2 start;
+	iVec2 end;
+} ATTACKING_ANIMATION;
+
+typedef union {
+	IDLE_ANIMATION idle;
+	MOVING_ANIMATION moving;
+	ATTACKING_ANIMATION attacking;
+} AnimationDataUnion;
+
+typedef struct Animation {
+	EntityAnimType type;
+	AnimationDataUnion data;
+}Animation; 
 
 typedef struct Entity {
 	int id;
-	enum EntityType type;
+	EntityType type;
 
 	char name[32];
 	iVec2 tilePos;
@@ -21,11 +48,12 @@ typedef struct Entity {
 
 	iVec2 combatTargetTilePos;
 
-	enum EntityState currentState;
-	enum EntityState nextTurnState;
+	EntityActionState currentState;
+	EntityActionState nextTurnState;
 	int path[200];
 	int pathsize;
 	int movePathIdx;
+	Animation animation;
 	int aniFrame;
 	Rectangle baseTexSource;
 } Entity;

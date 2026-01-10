@@ -40,7 +40,7 @@ bool updateEntityRenderPos(Entity* entity, double turnDuration, double turnElaps
 		entity->aniFrame += 1;
 	}
 
-	if (entity->currentState == MOVING) {
+	if (entity->currentState == MOVING)  {
 		if (entity->tilePos.x == entity->moveTargetTilePos.x
 			&& entity->tilePos.y == entity->moveTargetTilePos.y) {
 			return false; //Stationary no update required
