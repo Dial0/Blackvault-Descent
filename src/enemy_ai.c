@@ -179,7 +179,7 @@ void calculateEnemyTurn(Entity* enemyEntity, Entity player, const Entity* const 
 
 
 	if (cardinallyAdjacent(player.moveTargetTilePos, enemyEntity->tilePos)) {
-		enemyEntity->eState = ATTACKING;
+		enemyEntity->currentState = ATTACKING;
 		enemyEntity->combatTargetTilePos = player.moveTargetTilePos;
 		return;
 	}
@@ -229,7 +229,7 @@ void calculateEnemyTurn(Entity* enemyEntity, Entity player, const Entity* const 
 		if (dist < minDist) {
 			minDist = dist;
 			bestTarget = candidate;
-			enemyEntity->eState = MOVING;
+			enemyEntity->currentState = MOVING;
 		}
 	}
 

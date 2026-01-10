@@ -105,22 +105,27 @@ void UpdateDrawFrame(void* v_state) {
 
 		//TODO: Check if the clicked square contains an enemy, if it does set that as the attack target
 		//if the enemy is adjacent then attack, otherwise move towards it
+		bool adjacentTile = cardinallyAdjacent(state->cursTilePos, state->playerEnt.tilePos);
 		int enemyIdxOccupy = tileOccupiedByEnemy(state->cursTilePos, &state->enemies, state->enemiesLen);
-		if (enemyIdxOccupy != -1) {
-			int newEnemiesLen = swapAndDropEnemy(enemyIdxOccupy, &state->enemies, state->enemiesLen);
-			state->enemiesLen = newEnemiesLen;
-		}
-
-		if (state->playerEnt.movePathIdx < state->playerEnt.pathsize) {
-			state->playerEnt.pathsize = findAsPath(state->playerEnt.moveTargetTilePos, state->cursTilePos, state->mapData, state->playerEnt.path, 200);
+		if (enemyIdxOccupy != -1 && adjacentTile) {
+			//int newEnemiesLen = swapAndDropEnemy(enemyIdxOccupy, &state->enemies, state->enemiesLen);
+			//state->enemiesLen = newEnemiesLen;
+			state->playerEnt.nextTurnState = ATTACKING;
+			state->playerEnt.combatTargetTilePos = state->cursTilePos;
 		}
 		else {
-			state->playerEnt.pathsize = findAsPath(state->playerEnt.tilePos, state->cursTilePos, state->mapData, state->playerEnt.path, 200);
-			state->playerEnt.moveTargetTilePos = mapIdxToXY(state->playerEnt.path[0], state->mapSizeX);
+
+			if (state->playerEnt.movePathIdx < state->playerEnt.pathsize) {
+				state->playerEnt.pathsize = findAsPath(state->playerEnt.moveTargetTilePos, state->cursTilePos, state->mapData, state->playerEnt.path, 200);
+			}
+			else {
+				state->playerEnt.pathsize = findAsPath(state->playerEnt.tilePos, state->cursTilePos, state->mapData, state->playerEnt.path, 200);
+				state->playerEnt.moveTargetTilePos = mapIdxToXY(state->playerEnt.path[0], state->mapSizeX);
+			}
+			state->playerEnt.movePathIdx = 0;
+			state->playerEnt.nextTurnState = MOVING;
+
 		}
-		state->playerEnt.movePathIdx = 0;
-		state->playerEnt.eState = MOVING;
-		
 	}
 
 	//-------------------------------------------------------------------------------------------
@@ -131,6 +136,9 @@ void UpdateDrawFrame(void* v_state) {
 
 	if (state->gameTime > state->nextTurnTime) {
 
+
+		state->playerEnt.currentState = state->playerEnt.nextTurnState;
+
 		//-----------------------------------------------------------------------
 		//BELOW: All the logic to run to end the previous turn
 		//		 Using this section to finilise any movement and 
@@ -139,18 +147,23 @@ void UpdateDrawFrame(void* v_state) {
 
 		//try to set player to Idle if and stop turns incrementing
 
-		if (!setEntityIdleIfPathEnd(&state->playerEnt)) {
+		if (state->playerEnt.currentState == MOVING && !setEntityIdleIfPathEnd(&state->playerEnt)) {
 			//If we didn't idle from reaching the end of the path, check if there is an obstruction in the path
 			//If there is, set to idle, so player can react
 			iVec2 nextTile = mapIdxToXY(state->playerEnt.path[state->playerEnt.movePathIdx + 1], state->mapSizeX);
 			int enemyIdxOccupy = tileOccupiedByEnemy(nextTile, &state->enemies, state->enemiesLen);
 			if (enemyIdxOccupy != -1) {
-				state->playerEnt.eState = IDLE;
+				state->playerEnt.currentState = IDLE;
 				state->playerEnt.pathsize = 0;
 				state->playerEnt.movePathIdx = 0;
 			}
 		}
 
+		else if (state->playerEnt.currentState == ATTACKING) {
+			state->playerEnt.nextTurnState = IDLE;
+			state->playerEnt.pathsize = 0;
+			state->playerEnt.movePathIdx = 0;
+		}
 
 		//Make sure the player and enemies are the target tile from the end of last turn
 		state->playerEnt.tilePos = state->playerEnt.moveTargetTilePos;
@@ -162,14 +175,14 @@ void UpdateDrawFrame(void* v_state) {
 			state->enemies[i].tilePos = state->enemies[i].moveTargetTilePos;
 			state->enemies[i].renderWorldPos.x = state->enemies[i].moveTargetTilePos.x;
 			state->enemies[i].renderWorldPos.y = state->enemies[i].moveTargetTilePos.y;
-			state->enemies[i].eState = IDLE;
+			state->enemies[i].currentState = IDLE;
 		}
 
 		//-----------------------------------------------------------------
 		//BELOW: Logic to determine if we automatically start the next turn
 		//-----------------------------------------------------------------
 
-		if (state->playerEnt.eState != IDLE) {
+		if (state->playerEnt.currentState != IDLE) {
 			state->nextTurnTime = state->gameTime + state->turnDuration;
 			state->curTurn += 1;
 
@@ -183,7 +196,10 @@ void UpdateDrawFrame(void* v_state) {
 
 		
 		//if (updateEntityMovement(&state->playerEnt, state->mapSizeX)) {
-		updateEntityPath(&state->playerEnt, state->mapSizeX);
+		if (state->playerEnt.pathsize > 0 && state->playerEnt.currentState == MOVING) {
+			updateEntityPath(&state->playerEnt, state->mapSizeX);
+		}
+
 
 
 
@@ -218,7 +234,7 @@ void populateEnemies(Rectangle playArea, Entity* entityArr, int entityArrLen) {
 	for (int i = 0; i < entityArrLen; i+=1) {
 		entityArr[i].aniFrame = 0;
 		entityArr[i].baseTexSource = (struct Rectangle){ 0.0f, 16.0f, 16.0f, 16.0f }; //ORC
-		entityArr[i].eState = IDLE;
+		entityArr[i].currentState = IDLE;
 		entityArr[i].movePathIdx = 0;
 		entityArr[i].pathsize = 0;
 

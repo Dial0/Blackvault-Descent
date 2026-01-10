@@ -8,7 +8,7 @@ typedef struct iVec2 {
 
 enum EntityType { PLAYER, ENEMY };
 
-enum EntityState { IDLE, MOVING, ATTACKING };
+enum EntityState { IDLE, MOVING, INITIATE_ATTACK, ATTACKING };
 
 typedef struct Entity {
 	int id;
@@ -21,7 +21,8 @@ typedef struct Entity {
 
 	iVec2 combatTargetTilePos;
 
-	enum EntityState eState;
+	enum EntityState currentState;
+	enum EntityState nextTurnState;
 	int path[200];
 	int pathsize;
 	int movePathIdx;

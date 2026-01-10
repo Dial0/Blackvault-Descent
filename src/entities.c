@@ -17,7 +17,8 @@ Entity initEntity(enum EntityType type, char* name, int namelen, iVec2 tilePos, 
 	newEntity.renderWorldPos.x = tilePos.x;
 	newEntity.renderWorldPos.y = tilePos.y;
 
-	newEntity.eState = IDLE;
+	newEntity.currentState = IDLE;
+	newEntity.nextTurnState = IDLE;
 
 	newEntity.pathsize = 0;
 	newEntity.movePathIdx = 0;
@@ -31,7 +32,7 @@ Entity initEntity(enum EntityType type, char* name, int namelen, iVec2 tilePos, 
 
 bool updateEntityRenderPos(Entity* entity, double turnDuration, double turnElapsed) {
 
-	if (entity->eState == ATTACKING) {
+	if (entity->currentState == ATTACKING) {
 		double t = turnElapsed / turnDuration;
 		Vector2 start = { entity->tilePos.x, entity->tilePos.y };
 		Vector2 end = { entity->combatTargetTilePos.x, entity->combatTargetTilePos.y };
@@ -39,7 +40,7 @@ bool updateEntityRenderPos(Entity* entity, double turnDuration, double turnElaps
 		entity->aniFrame += 1;
 	}
 
-	if (entity->eState == MOVING) {
+	if (entity->currentState == MOVING) {
 		if (entity->tilePos.x == entity->moveTargetTilePos.x
 			&& entity->tilePos.y == entity->moveTargetTilePos.y) {
 			return false; //Stationary no update required
@@ -76,7 +77,7 @@ bool setEntityIdleIfPathEnd(Entity* entity) {
 	if (entity->movePathIdx >= (entity->pathsize - 1)) {
 		entity->movePathIdx = 0;
 		entity->pathsize = 0;
-		entity->eState = IDLE;
+		entity->currentState = IDLE;
 		return true;
 	}
 	return false;
