@@ -30,7 +30,36 @@ Entity initEntity(enum EntityType type, char* name, int namelen, iVec2 tilePos, 
 
 }
 
-bool updateEntityRenderPos(Entity* entity, double turnDuration, double turnElapsed) {
+bool updateEntityAnimation2(Entity* entity, double turnDuration, double turnElapsed) {
+
+	if (entity->animation.type == ATTACKING) {
+		double t = turnElapsed / turnDuration;
+		iVec2 iStart = entity->animation.data.attacking.start;
+		iVec2 iEnd = entity->animation.data.attacking.end;
+		entity->renderWorldPos = interpolatePingpong(iVec2ToVector2(iStart), iVec2ToVector2(iEnd), t);
+		entity->aniFrame += 1;
+	}
+
+	if (entity->animation.type == MOVING) {
+
+		//if (entity->tilePos.x == entity->moveTargetTilePos.x
+		//	&& entity->tilePos.y == entity->moveTargetTilePos.y) {
+		//	return false; //Stationary no update required
+		//	//TODO: Can this be set to check if the Entity State is IDLE?
+		//}
+		double t = turnElapsed / turnDuration;
+		iVec2 iStart = entity->animation.data.moving.start;
+		iVec2 iEnd = entity->animation.data.moving.end;
+		entity->renderWorldPos = Vector2Lerp(iVec2ToVector2(iStart) , iVec2ToVector2(iEnd), t); 
+		entity->aniFrame += 1;
+	}
+
+
+
+	return true;
+}
+
+bool updateEntityAnimation(Entity* entity, double turnDuration, double turnElapsed) {
 
 	if (entity->currentState == ATTACKING) {
 		double t = turnElapsed / turnDuration;

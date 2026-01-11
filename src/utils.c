@@ -85,6 +85,9 @@ float iVec2fDistance(iVec2 v1, iVec2 v2) {
 	return result;
 }
 
+Vector2 iVec2ToVector2(iVec2 v) {
+	return (struct Vector2) { v.x,v.y };
+}
 
 iVec2 getRandPosInPlayArea(Rectangle playArea) {
 
@@ -112,3 +115,4 @@ Vector2 interpolatePingpong(Vector2 start, Vector2 end, float t) {
 bool cardinallyAdjacent(iVec2 Tile1, iVec2 Tile2) {
 	return (abs(Tile1.x - Tile2.x) + abs(Tile1.y - Tile2.y) == 1);
 }
+

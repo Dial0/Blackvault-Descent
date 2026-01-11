@@ -6,6 +6,10 @@ typedef struct iVec2 {
 	int y;
 } iVec2;
 
+//=======
+// ENTITY
+//=======
+
 typedef enum { PLAYER, ENEMY } EntityType;
 
 typedef enum { IDLE, MOVING, ATTACKING } EntityActionState;
