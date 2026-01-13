@@ -55,12 +55,12 @@ void RenderPlayerPath(State* state) {
 			drawtileID = -1;
 		}
 
-		Rectangle pathTileSrc = { drawtileID * state->tileSize, 2 * state->tileSize, state->tileSize,state->tileSize };
+		Rectangle pathTileSrc = { (float)(drawtileID * state->tileSize), (float)(2 * state->tileSize), (float)state->tileSize,(float)state->tileSize };
 
 		iVec2 tileLoc = mapIdxToXY(state->playerEnt.path[i], state->mapSizeX);
 		iVec2 pathPos = mapTileXYtoScreenXY(tileLoc.x, tileLoc.y, state->renderParams);
 
-		DrawTextureRec(state->ui, pathTileSrc, (struct Vector2) { pathPos.x, pathPos.y }, WHITE);
+		DrawTextureRec(state->ui, pathTileSrc, (struct Vector2) { (float)pathPos.x, (float)pathPos.y }, WHITE);
 
 
 	}
@@ -78,11 +78,11 @@ void renderEntity(Entity entity, RenderParams renderParams, Texture2D tex) {
 
 		Rectangle newTexSource = entity.baseTexSource;
 		newTexSource.x += 16;
-		DrawTextureRec(tex, newTexSource, (struct Vector2) { playerEntityPixelPos.x, playerEntityPixelPos.y }, WHITE);
+		DrawTextureRec(tex, newTexSource, (struct Vector2) { (float)playerEntityPixelPos.x, (float)playerEntityPixelPos.y }, WHITE);
 
 	}
 	else {
-		DrawTextureRec(tex, entity.baseTexSource, (struct Vector2) { playerEntityPixelPos.x, playerEntityPixelPos.y }, WHITE);
+		DrawTextureRec(tex, entity.baseTexSource, (struct Vector2) { (float)playerEntityPixelPos.x, (float)playerEntityPixelPos.y }, WHITE);
 
 	}
 }
@@ -107,17 +107,17 @@ void drawFrame(State* state) {
 	DrawTexture(state->map, 0, mapRenderOffset + scrollOffset, WHITE);
 
 	Rectangle cursorRec = { 0.0f,0.0f,18.0f,18.0f };
-	int centOff = (cursorRec.width - state->tileSize) / 2;
+	int centOff = (int)((cursorRec.width - state->tileSize) / 2);
 	iVec2 cursPixel = mapTileXYtoScreenXY(state->cursTilePos.x, state->cursTilePos.y, state->renderParams);
 
-	DrawTextureRec(state->ui, cursorRec, (struct Vector2) { cursPixel.x - centOff, cursPixel.y - centOff }, WHITE);
+	DrawTextureRec(state->ui, cursorRec, (struct Vector2) { (float)(cursPixel.x - centOff), (float)(cursPixel.y - centOff )}, WHITE);
 
 	if (state->playerEnt.pathsize) {
 		RenderPlayerPath(state);
 		Rectangle pathEndRec = { 19.0f,0.0f,18.0f,18.0f };
 		iVec2 tilePathEnd = mapIdxToXY(state->playerEnt.path[state->playerEnt.pathsize - 1], state->mapSizeX);
 		iVec2 pathEndPixel = mapTileXYtoScreenXY(tilePathEnd.x, tilePathEnd.y, state->renderParams);
-		DrawTextureRec(state->ui, pathEndRec, (struct Vector2) { pathEndPixel.x - centOff, pathEndPixel.y - centOff }, WHITE);
+		DrawTextureRec(state->ui, pathEndRec, (struct Vector2) { (float)(pathEndPixel.x - centOff), (float)(pathEndPixel.y - centOff )}, WHITE);
 	}
 
 	//PLAYER
@@ -137,15 +137,10 @@ void drawFrame(State* state) {
 	EndTextureMode();
 
 
-	Rectangle mapRendTexSrc = { 0, 0, state->mapRendTex.texture.width, -state->mapRendTex.texture.height };
+	Rectangle mapRendTexSrc = { 0, 0, (float)state->mapRendTex.texture.width, (float)(- state->mapRendTex.texture.height)};
 	DrawTexturePro(state->mapRendTex.texture, mapRendTexSrc,
-		(struct Rectangle) {
-		0, -state->scale + state->smoothScrollY % state->scale, state->baseSizeX* state->scale, state->baseSizeY* state->scale
-	},
-		(struct Vector2) {
-		0, 0
-	}, 0.0f, WHITE);
-
+		(struct Rectangle) { 0, (float)( - state->scale + state->smoothScrollY % state->scale), (float)(state->baseSizeX* state->scale), (float)(state->baseSizeY* state->scale) },
+		(struct Vector2) { 0.0f, 0.0f }, 0.0f, WHITE);
 
 	EndDrawing();
 }

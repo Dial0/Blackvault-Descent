@@ -14,8 +14,8 @@ Entity initEntity(EntityType type, char* name, int namelen, iVec2 tilePos, Recta
 
 	newEntity.tilePos = tilePos;
 	newEntity.moveTargetTilePos = tilePos;
-	newEntity.renderWorldPos.x = tilePos.x;
-	newEntity.renderWorldPos.y = tilePos.y;
+	newEntity.renderWorldPos.x = (float)tilePos.x;
+	newEntity.renderWorldPos.y = (float)tilePos.y;
 
 	newEntity.currentState = IDLE;
 	newEntity.nextTurnState = IDLE;
@@ -33,7 +33,7 @@ Entity initEntity(EntityType type, char* name, int namelen, iVec2 tilePos, Recta
 bool updateEntityAnimation2(Entity* entity, double turnDuration, double turnElapsed) {
 
 	if (entity->animation.type == ATTACKING) {
-		double t = turnElapsed / turnDuration;
+		float t = (float)(turnElapsed / turnDuration);
 		iVec2 iStart = entity->animation.data.attacking.start;
 		iVec2 iEnd = entity->animation.data.attacking.end;
 		entity->renderWorldPos = interpolatePingpong(iVec2ToVector2(iStart), iVec2ToVector2(iEnd), t);
@@ -47,7 +47,7 @@ bool updateEntityAnimation2(Entity* entity, double turnDuration, double turnElap
 		//	return false; //Stationary no update required
 		//	//TODO: Can this be set to check if the Entity State is IDLE?
 		//}
-		double t = turnElapsed / turnDuration;
+		float t = (float)(turnElapsed / turnDuration);
 		iVec2 iStart = entity->animation.data.moving.start;
 		iVec2 iEnd = entity->animation.data.moving.end;
 		entity->renderWorldPos = Vector2Lerp(iVec2ToVector2(iStart) , iVec2ToVector2(iEnd), t); 
@@ -62,9 +62,9 @@ bool updateEntityAnimation2(Entity* entity, double turnDuration, double turnElap
 bool updateEntityAnimation(Entity* entity, double turnDuration, double turnElapsed) {
 
 	if (entity->currentState == ATTACKING) {
-		double t = turnElapsed / turnDuration;
-		Vector2 start = { entity->tilePos.x, entity->tilePos.y };
-		Vector2 end = { entity->combatTargetTilePos.x, entity->combatTargetTilePos.y };
+		float t = (float)(turnElapsed / turnDuration);
+		Vector2 start = { (float)entity->tilePos.x, (float)entity->tilePos.y };
+		Vector2 end = { (float)entity->combatTargetTilePos.x, (float)entity->combatTargetTilePos.y };
 		entity->renderWorldPos = interpolatePingpong(start, end, t);
 		entity->aniFrame += 1;
 	}
@@ -76,9 +76,9 @@ bool updateEntityAnimation(Entity* entity, double turnDuration, double turnElaps
 			//TODO: Can this be set to check if the Entity State is IDLE?
 		}
 
-		Vector2 start = { entity->tilePos.x, entity->tilePos.y };
-		Vector2 end = { entity->moveTargetTilePos.x, entity->moveTargetTilePos.y };
-		double t = turnElapsed / turnDuration;
+		Vector2 start = { (float)entity->tilePos.x, (float)entity->tilePos.y };
+		Vector2 end = { (float)entity->moveTargetTilePos.x, (float)entity->moveTargetTilePos.y };
+		float t = (float)(turnElapsed / turnDuration);
 
 		entity->renderWorldPos = Vector2Lerp(start, end, t);
 

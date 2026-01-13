@@ -50,10 +50,18 @@ int findAsPath(iVec2 startTile, iVec2 endTile, unsigned char* mapData, int* path
 
 	int* aStarData = malloc(totalDataSizeByte);
 
+
+
 	int* openSet = aStarData;
 	int openSetSize = 0;
 
-	openSet[0] = start;
+	if (openSet != NULL) {
+		openSet[0] = start;
+	}
+	else {
+		return 0;
+	}
+	
 	openSetSize += 1;
 
 	int* cameFromIdx = aStarData + mapDataSizeInt;
@@ -175,7 +183,7 @@ int findAsPath(iVec2 startTile, iVec2 endTile, unsigned char* mapData, int* path
 	return 0;
 }
 
-void calculateEnemyTurn(Entity* enemyEntity, Entity player, const Entity* const OtherEnemies, int enemiesLen, Rectangle playArea, int mapSizeX) {
+void calculateEnemyTurn(Entity* enemyEntity, Entity player, Entity* OtherEnemies, int enemiesLen, Rectangle playArea, int mapSizeX) {
 
 
 	if (cardinallyAdjacent(player.moveTargetTilePos, enemyEntity->tilePos)) {
@@ -202,8 +210,8 @@ void calculateEnemyTurn(Entity* enemyEntity, Entity player, const Entity* const 
 		};
 
 		// Clamp to play area bounds (assuming playArea is a rectangle: x, y, width, height)
-		candidate.x = Clamp(candidate.x, playArea.x, playArea.x + playArea.width);
-		candidate.y = Clamp(candidate.y, playArea.y, playArea.y + playArea.height);
+		candidate.x = (int)Clamp((float)candidate.x, playArea.x, playArea.x + playArea.width);
+		candidate.y = (int)Clamp((float)candidate.y, playArea.y, playArea.y + playArea.height);
 
 		//check here is there is already a entity in the target tile
 		//if there is continue

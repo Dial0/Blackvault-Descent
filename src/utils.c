@@ -22,7 +22,7 @@ iVec2 mapWorldXYtoScreenXY(float MapX, float MapY, RenderParams param) {
 	int tileYOffset = (param.mapViewPortHeight - 1) / param.tileSize;
 	int scrollOffset = (param.smoothScrollY / param.scale);
 
-	return (struct iVec2) { MapX* (float)(param.tileSize), (-MapY + tileYOffset)* (float)(param.tileSize) + mapRenderOffset % param.tileSize + scrollOffset };
+	return (struct iVec2) { (int)(MapX* (float)(param.tileSize)), (int)((-MapY + tileYOffset)* (float)(param.tileSize) + mapRenderOffset % param.tileSize + scrollOffset )};
 }
 
 iVec2 screenXYtoMapTileXY(int screenX, int screenY, RenderParams param) {
@@ -86,15 +86,15 @@ float iVec2fDistance(iVec2 v1, iVec2 v2) {
 }
 
 Vector2 iVec2ToVector2(iVec2 v) {
-	return (struct Vector2) { v.x,v.y };
+	return (struct Vector2) { (float)v.x,(float)v.y };
 }
 
 iVec2 getRandPosInPlayArea(Rectangle playArea) {
 
-	int playAreaXMin = playArea.x;
-	int playAreaXMax = playArea.x + playArea.width;
-	int playAreaYMin = playArea.y;
-	int playAreaYMax = playArea.y + playArea.height;
+	int playAreaXMin = (int)playArea.x;
+	int playAreaXMax = (int)(playArea.x + playArea.width);
+	int playAreaYMin = (int)playArea.y;
+	int playAreaYMax = (int)(playArea.y + playArea.height);
 
 	int randX = GetRandomValue(playAreaXMin, playAreaXMax);
 	int randY = GetRandomValue(playAreaYMin, playAreaYMax);

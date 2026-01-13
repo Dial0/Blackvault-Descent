@@ -18,7 +18,7 @@
 #include "entity_actions.c"
 
 
-int tileOccupiedByEnemy(iVec2 tile, const  Entity* const OtherEnemies, int enemiesLen) {
+int tileOccupiedByEnemy(iVec2 tile, Entity* OtherEnemies, int enemiesLen) {
 	for (int i = 0; i < enemiesLen; i+=1) {
 		if (OtherEnemies[i].moveTargetTilePos.x == tile.x && OtherEnemies[i].moveTargetTilePos.y == tile.y) {
 			return i;
@@ -52,18 +52,18 @@ void UpdateDrawFrame(void* v_state) {
 
 	Vector2 mousePos = GetMousePosition();
 
-	state->cursTilePos = screenXYtoMapTileXY(mousePos.x / state->renderParams.scale, mousePos.y / state->renderParams.scale, state->renderParams);
+	state->cursTilePos = screenXYtoMapTileXY((int)(mousePos.x / state->renderParams.scale), (int)(mousePos.y / state->renderParams.scale), state->renderParams);
 
-	int playAreaYMin = state->playArea.y;
-	int playAreaYMax = state->playArea.y + state->playArea.height;
-	int playAreaXMin = state->playArea.x;
-	int playAreaXMax = state->playArea.x + state->playArea.width;
+	int playAreaYMin = (int)state->playArea.y;
+	int playAreaYMax = (int)(state->playArea.y + state->playArea.height);
+	int playAreaXMin = (int)state->playArea.x;
+	int playAreaXMax = (int)(state->playArea.x + state->playArea.width);
 	if (state->cursTilePos.y < playAreaYMin) { state->cursTilePos.y = playAreaYMin; }
 	if (state->cursTilePos.y > playAreaYMax) { state->cursTilePos.y = playAreaYMax; }
 	if (state->cursTilePos.x < playAreaXMin) { state->cursTilePos.x = playAreaXMin; }
 	if (state->cursTilePos.x > playAreaXMax) { state->cursTilePos.x = playAreaXMax; }
 
-	int cursorYScreen = mousePos.y / state->renderParams.scale;
+	int cursorYScreen = (int)(mousePos.y / state->renderParams.scale);
 
 	int scrollUpThreshold = state->baseSizeY / 8;
 	int scrollDownThreshold = state->baseSizeY - scrollUpThreshold;
@@ -107,7 +107,7 @@ void UpdateDrawFrame(void* v_state) {
 		//TODO: Check if the clicked square contains an enemy, if it does set that as the attack target
 		//if the enemy is adjacent then attack, otherwise move towards it
 		bool adjacentTile = cardinallyAdjacent(state->cursTilePos, state->playerEnt.tilePos);
-		int enemyIdxOccupy = tileOccupiedByEnemy(state->cursTilePos, &state->enemies, state->enemiesLen);
+		int enemyIdxOccupy = tileOccupiedByEnemy(state->cursTilePos, &state->enemies[0], state->enemiesLen);
 		if (enemyIdxOccupy != -1 && adjacentTile) {
 			//int newEnemiesLen = swapAndDropEnemy(enemyIdxOccupy, &state->enemies, state->enemiesLen);
 			//state->enemiesLen = newEnemiesLen;
@@ -154,7 +154,7 @@ void UpdateDrawFrame(void* v_state) {
 			//If we didn't idle from reaching the end of the path, check if there is an obstruction in the path
 			//If there is, set to idle, so player can react
 			iVec2 nextTile = mapIdxToXY(state->playerEnt.path[state->playerEnt.movePathIdx + 1], state->mapSizeX);
-			int enemyIdxOccupy = tileOccupiedByEnemy(nextTile, &state->enemies, state->enemiesLen);
+			int enemyIdxOccupy = tileOccupiedByEnemy(nextTile, &state->enemies[0], state->enemiesLen);
 			if (enemyIdxOccupy != -1) {
 				state->playerEnt.currentState = IDLE;
 				state->playerEnt.pathsize = 0;
@@ -177,14 +177,14 @@ void UpdateDrawFrame(void* v_state) {
 
 		//Make sure the player and enemies are the target tile from the end of last turn
 		state->playerEnt.tilePos = state->playerEnt.moveTargetTilePos;
-		state->playerEnt.renderWorldPos.x = state->playerEnt.moveTargetTilePos.x;
-		state->playerEnt.renderWorldPos.y = state->playerEnt.moveTargetTilePos.y;
+		state->playerEnt.renderWorldPos.x = (float)state->playerEnt.moveTargetTilePos.x;
+		state->playerEnt.renderWorldPos.y = (float)state->playerEnt.moveTargetTilePos.y;
 
 		for (int i = 0; i < state->enemiesLen; i += 1) {
 
 			state->enemies[i].tilePos = state->enemies[i].moveTargetTilePos;
-			state->enemies[i].renderWorldPos.x = state->enemies[i].moveTargetTilePos.x;
-			state->enemies[i].renderWorldPos.y = state->enemies[i].moveTargetTilePos.y;
+			state->enemies[i].renderWorldPos.x = (float)state->enemies[i].moveTargetTilePos.x;
+			state->enemies[i].renderWorldPos.y = (float)state->enemies[i].moveTargetTilePos.y;
 			state->enemies[i].currentState = IDLE;
 		}
 
@@ -221,7 +221,7 @@ void UpdateDrawFrame(void* v_state) {
 		//Probably want to do the same as in the player logic where we sync all the entities to their prev target as the turn has ended
 
 		for (int i = 0; i < state->enemiesLen; i += 1) {
-			calculateEnemyTurn(&state->enemies[i], state->playerEnt,&state->enemies,state->enemiesLen, state->playArea,state->mapSizeX);
+			calculateEnemyTurn(&state->enemies[i], state->playerEnt,&state->enemies[0], state->enemiesLen, state->playArea, state->mapSizeX);
 		}
 
 	}
@@ -271,7 +271,7 @@ void populateEnemies(Rectangle playArea, Entity* entityArr, int entityArrLen) {
 
 		entityArr[i].tilePos = randPos;
 		entityArr[i].moveTargetTilePos = entityArr[i].tilePos;
-		entityArr[i].renderWorldPos = (struct Vector2){ randPos.x,randPos.y};
+		entityArr[i].renderWorldPos = (struct Vector2){ (float)randPos.x,(float)randPos.y};
 	}
 }
 

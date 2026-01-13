@@ -21,22 +21,22 @@ typedef void (*EntityActionHandler)(const EntityAction* cmd);
 // ?? Individual handlers ????????????????????????????????????????????????
 
 static void actionMove(const EntityAction* cmd) {
-	printf("Moving: %.1f, %.1f @ speed %.1f\n",
-		cmd->move.direction.x,
-		cmd->move.direction.y,
-		cmd->move.speed);
+	//printf("Moving: %.1f, %.1f @ speed %.1f\n",
+	//	cmd->move.direction.x,
+	//	cmd->move.direction.y,
+	//	cmd->move.speed);
 }
 
 static void actionMelee(const EntityAction* cmd) {
-	printf("Shooting weapon %d with power %.1f\n",
-		cmd->melee.weapon_id,
-		cmd->melee.power);
+	//printf("Shooting weapon %d with power %.1f\n",
+	//	cmd->melee.weapon_id,
+	//	cmd->melee.power);
 }
 
 static void actionRanged(const EntityAction* cmd) {
-	printf("Shooting weapon %d with power %.1f\n",
-		cmd->melee.weapon_id,
-		cmd->melee.power);
+	//printf("Shooting weapon %d with power %.1f\n",
+	//	cmd->melee.weapon_id,
+	//	cmd->melee.power);
 }
 
 // ?? Dispatch table ?????????????????????????????????????????????????????
@@ -68,7 +68,7 @@ int ActionExample(void) {
 	};
 
 	for (int i = 0; i < sizeof(commands) / sizeof(commands[0]); i++) {
-		printf("Processing command %zu: ", i);
+		//printf("Processing command %zu: ", i);
 		processEntityAction(&commands[i]);
 	}
 
