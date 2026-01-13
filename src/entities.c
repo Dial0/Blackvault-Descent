@@ -32,7 +32,7 @@ Entity initEntity(EntityType type, char* name, int namelen, iVec2 tilePos, Recta
 
 bool updateEntityAnimation2(Entity* entity, double turnDuration, double turnElapsed) {
 
-	if (entity->animation.type == ATTACKING) {
+	if (entity->animation.type == ANIM_ATTACKING) {
 		float t = (float)(turnElapsed / turnDuration);
 		iVec2 iStart = entity->animation.data.attacking.start;
 		iVec2 iEnd = entity->animation.data.attacking.end;
@@ -40,7 +40,7 @@ bool updateEntityAnimation2(Entity* entity, double turnDuration, double turnElap
 		entity->aniFrame += 1;
 	}
 
-	if (entity->animation.type == MOVING) {
+	if (entity->animation.type == ANIM_MOVING) {
 
 		//if (entity->tilePos.x == entity->moveTargetTilePos.x
 		//	&& entity->tilePos.y == entity->moveTargetTilePos.y) {
