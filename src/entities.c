@@ -1,5 +1,5 @@
 
-Entity initEntity(enum EntityType type, char* name, int namelen, iVec2 tilePos, Rectangle baseTexSource) {
+Entity initEntity(EntityType type, char* name, int namelen, iVec2 tilePos, Rectangle baseTexSource) {
 
 	Entity newEntity;
 
@@ -96,9 +96,10 @@ int swapAndDropEnemy(int dropIdx, Entity* Enemies, int enemiesLen) {
 	return enemiesLen;
 }
 
-updateEntityPath(Entity* entity, int mapSizeX) {
+void updateEntityPath(Entity* entity, int mapSizeX) {
 	entity->movePathIdx += 1;
 	entity->moveTargetTilePos = mapIdxToXY(entity->path[entity->movePathIdx], mapSizeX);
+	return;
 }
 
 
