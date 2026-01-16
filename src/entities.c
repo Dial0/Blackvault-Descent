@@ -26,6 +26,9 @@ Entity initEntity(EntityType type, char* name, int namelen, iVec2 tilePos, Recta
 
 	newEntity.baseTexSource = baseTexSource;
 
+	newEntity.hitPoints = 10;
+	newEntity.atkStr = 2;
+
 	return newEntity;
 
 }

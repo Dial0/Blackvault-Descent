@@ -136,9 +136,9 @@ void UpdateDrawFrame(void* v_state) {
 	//		 from initaiting moving or attacking etc
 	//-------------------------------------------------------------------------------------------
 
+	bool playerIdle = (state->playerEnt.currentState == IDLE) && (state->playerEnt.nextTurnState == IDLE);
 
-	if (state->gameTime > state->nextTurnTime) {
-
+	if (state->gameTime > state->nextTurnTime && !playerIdle) {
 
 		state->playerEnt.currentState = state->playerEnt.nextTurnState;
 
@@ -185,7 +185,10 @@ void UpdateDrawFrame(void* v_state) {
 			state->enemies[i].tilePos = state->enemies[i].moveTargetTilePos;
 			state->enemies[i].renderWorldPos.x = (float)state->enemies[i].moveTargetTilePos.x;
 			state->enemies[i].renderWorldPos.y = (float)state->enemies[i].moveTargetTilePos.y;
-			state->enemies[i].currentState = IDLE;
+
+			if (state->enemies[i].currentState != DEAD) {
+				state->enemies[i].currentState = IDLE;
+			}
 		}
 
 		//-----------------------------------------------------------------
@@ -213,6 +216,21 @@ void UpdateDrawFrame(void* v_state) {
 			state->playerEnt.animation.data.moving.end = state->playerEnt.moveTargetTilePos;
 		}
 
+		if (state->playerEnt.currentState = ATTACKING) {
+			for (int i = 0; i < state->enemiesLen; i += 1) {
+
+				iVec2 enemyPos = state->enemies[i].moveTargetTilePos;
+				iVec2 playerAtkPos = state->playerEnt.combatTargetTilePos;
+				if (enemyPos.x == playerAtkPos.x && enemyPos.y == playerAtkPos.y) {
+					state->enemies[i].hitPoints -= state->playerEnt.atkStr;
+					if (state->enemies[i].hitPoints <= 0) {
+						state->enemies[i].hitPoints = 0;
+						state->enemies[i].currentState = DEAD;
+					}
+				}
+			}
+		}
+
 
 
 
@@ -221,6 +239,11 @@ void UpdateDrawFrame(void* v_state) {
 		//Probably want to do the same as in the player logic where we sync all the entities to their prev target as the turn has ended
 
 		for (int i = 0; i < state->enemiesLen; i += 1) {
+
+			if (state->enemies[i].currentState == DEAD) {
+				continue;
+			}
+
 			calculateEnemyTurn(&state->enemies[i], state->playerEnt,&state->enemies[0], state->enemiesLen, state->playArea, state->mapSizeX);
 		}
 
@@ -236,6 +259,7 @@ void UpdateDrawFrame(void* v_state) {
 		updateEntityAnimation(&state->enemies[i], state->turnDuration, getTurnElapsedTime(state->gameTime, state->nextTurnTime, state->turnDuration));
 	}
 
+	//PROBABLY DO ENTITY HP CHECKS AND CLEAN UP HERE?
 
 	drawFrame(state);
 }
@@ -272,6 +296,9 @@ void populateEnemies(Rectangle playArea, Entity* entityArr, int entityArrLen) {
 		entityArr[i].tilePos = randPos;
 		entityArr[i].moveTargetTilePos = entityArr[i].tilePos;
 		entityArr[i].renderWorldPos = (struct Vector2){ (float)randPos.x,(float)randPos.y};
+
+		entityArr[i].atkStr = 1;
+		entityArr[i].hitPoints = 4;
 	}
 }
 

@@ -12,7 +12,7 @@ typedef struct iVec2 {
 
 typedef enum { PLAYER, ENEMY } EntityType;
 
-typedef enum { IDLE, MOVING, ATTACKING } EntityActionState;
+typedef enum { IDLE, MOVING, ATTACKING, DEAD } EntityActionState;
 
 typedef enum {ANIM_IDLE, ANIM_MOVING, ANIM_ATTACKING} EntityAnimType;
 
@@ -44,8 +44,11 @@ typedef struct Animation {
 typedef struct Entity {
 	int id;
 	EntityType type;
-
 	char name[32];
+
+	int hitPoints;
+	int atkStr;
+
 	iVec2 tilePos;
 	Vector2 renderWorldPos;
 	iVec2 moveTargetTilePos;
