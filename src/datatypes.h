@@ -14,7 +14,9 @@ typedef enum { PLAYER, ENEMY } EntityType;
 
 typedef enum { IDLE, MOVING, ATTACKING, DEAD } EntityActionState;
 
-typedef enum {ANIM_IDLE, ANIM_MOVING, ANIM_ATTACKING} EntityAnimType;
+typedef enum { ANIM_IDLE, ANIM_MOVING, ANIM_ATTACKING } EntityAnimType;
+
+typedef enum { TURN_PHASE_WAITING, TURN_PHASE_IN_PROGRESS } TurnPhase;
 
 typedef struct {
 	int dummy;

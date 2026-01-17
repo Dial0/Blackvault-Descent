@@ -110,7 +110,7 @@ bool setEntityIdleIfPathEnd(Entity* entity) {
 	if (entity->movePathIdx >= (entity->pathsize - 1)) {
 		entity->movePathIdx = 0;
 		entity->pathsize = 0;
-		entity->currentState = IDLE;
+		entity->nextTurnState = IDLE;
 		return true;
 	}
 	return false;

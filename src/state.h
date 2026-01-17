@@ -44,6 +44,7 @@ typedef struct State {
 
 	int curTurn;
 	int prevTurn;
+	TurnPhase turnPhase;
 
 	double gameTime;
 	double nextTurnTime;

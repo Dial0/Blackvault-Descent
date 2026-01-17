@@ -16,6 +16,7 @@
 #include "render.c"
 #include "enemy_ai.c"
 #include "entity_actions.c"
+#include "game_loop.c"
 
 
 int tileOccupiedByEnemy(iVec2 tile, Entity* OtherEnemies, int enemiesLen) {
@@ -27,12 +28,7 @@ int tileOccupiedByEnemy(iVec2 tile, Entity* OtherEnemies, int enemiesLen) {
 	return -1;
 }
 
-double getTurnElapsedTime(double gameTime, double nextTurnTime, double TurnDuration) {
-	double remainingTime = nextTurnTime - gameTime;
-	double elapsedTime = TurnDuration - remainingTime;
-	if (elapsedTime > TurnDuration) { elapsedTime = TurnDuration; }
-	return elapsedTime;
-}
+
 
 void UpdateDrawFrame(void* v_state) {
 
@@ -216,7 +212,7 @@ void UpdateDrawFrame(void* v_state) {
 			state->playerEnt.animation.data.moving.end = state->playerEnt.moveTargetTilePos;
 		}
 
-		if (state->playerEnt.currentState = ATTACKING) {
+		if (state->playerEnt.currentState == ATTACKING) {
 			for (int i = 0; i < state->enemiesLen; i += 1) {
 
 				iVec2 enemyPos = state->enemies[i].moveTargetTilePos;
@@ -263,6 +259,7 @@ void UpdateDrawFrame(void* v_state) {
 
 	drawFrame(state);
 }
+
 
 
 
@@ -336,6 +333,7 @@ int main(void) {
 
 	state.nextTurnTime = 0.0f;
 	state.turnDuration = 0.6f;
+	state.turnPhase = TURN_PHASE_WAITING;
 
 	populateEnemies(state.playArea, state.enemies, state.enemiesLen);
 
@@ -361,7 +359,7 @@ int main(void) {
 	SetTargetFPS(60);
 	// Main game loop
 	while (!WindowShouldClose()) {
-		UpdateDrawFrame(&state);
+		UpdateDrawFrameTest(&state);
 }
 #endif
 	// De-Initialization

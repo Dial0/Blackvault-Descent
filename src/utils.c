@@ -116,3 +116,9 @@ bool cardinallyAdjacent(iVec2 Tile1, iVec2 Tile2) {
 	return (abs(Tile1.x - Tile2.x) + abs(Tile1.y - Tile2.y) == 1);
 }
 
+double getTurnElapsedTime(double gameTime, double nextTurnTime, double TurnDuration) {
+	double remainingTime = nextTurnTime - gameTime;
+	double elapsedTime = TurnDuration - remainingTime;
+	if (elapsedTime > TurnDuration) { elapsedTime = TurnDuration; }
+	return elapsedTime;
+}
