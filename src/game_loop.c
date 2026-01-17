@@ -86,8 +86,22 @@ void handleInput(State* state) {
 				state->playerEnt.pathsize = findAsPath(state->playerEnt.tilePos, state->cursTilePos, state->mapData, state->playerEnt.path, 200);
 				state->playerEnt.moveTargetTilePos = mapIdxToXY(state->playerEnt.path[0], state->mapSizeX);
 			}
-			state->playerEnt.movePathIdx = 0;
-			state->playerEnt.nextTurnState = MOVING;
+
+
+
+			iVec2 nextPathTile = mapIdxToXY(state->playerEnt.path[1], state->mapSizeX);
+			int enemyIdxOccupy = tileOccupiedByEnemy(nextPathTile, &state->enemies[0], state->enemiesLen);
+			if (enemyIdxOccupy == -1) {
+				state->playerEnt.movePathIdx = 0;
+				state->playerEnt.nextTurnState = MOVING;
+			}
+			else {
+				state->playerEnt.pathsize = 0;
+				state->playerEnt.movePathIdx = 0;
+				state->playerEnt.nextTurnState = IDLE;
+			}
+
+
 
 		}
 	}
@@ -102,6 +116,9 @@ void startNewTurn(State* state) {
 
 	state->playerEnt.currentState = state->playerEnt.nextTurnState;
 
+	state->nextTurnTime = state->gameTime + state->turnDuration;
+	state->curTurn += 1;
+
 	if (state->playerEnt.currentState == ATTACKING) {
 		state->playerEnt.nextTurnState = IDLE;
 		state->playerEnt.pathsize = 0;
@@ -109,22 +126,8 @@ void startNewTurn(State* state) {
 		state->playerEnt.animation.type = ANIM_ATTACKING;
 		state->playerEnt.animation.data.attacking.start = state->playerEnt.tilePos;
 		state->playerEnt.animation.data.attacking.end = state->playerEnt.combatTargetTilePos;
-	}
 
-	state->nextTurnTime = state->gameTime + state->turnDuration;
-	state->curTurn += 1;
-
-
-	if (state->playerEnt.pathsize > 0 && state->playerEnt.currentState == MOVING) {
-		updateEntityPath(&state->playerEnt, state->mapSizeX);
-		state->playerEnt.animation.type = ANIM_MOVING;
-		state->playerEnt.animation.data.moving.start = state->playerEnt.tilePos;
-		state->playerEnt.animation.data.moving.end = state->playerEnt.moveTargetTilePos;
-	}
-
-	if (state->playerEnt.currentState == ATTACKING) {
 		for (int i = 0; i < state->enemiesLen; i += 1) {
-
 			iVec2 enemyPos = state->enemies[i].moveTargetTilePos;
 			iVec2 playerAtkPos = state->playerEnt.combatTargetTilePos;
 			if (enemyPos.x == playerAtkPos.x && enemyPos.y == playerAtkPos.y) {
@@ -137,8 +140,12 @@ void startNewTurn(State* state) {
 		}
 	}
 
-
-
+	if (state->playerEnt.currentState == MOVING) {
+		updateEntityPath(&state->playerEnt, state->mapSizeX);
+		state->playerEnt.animation.type = ANIM_MOVING;
+		state->playerEnt.animation.data.moving.start = state->playerEnt.tilePos;
+		state->playerEnt.animation.data.moving.end = state->playerEnt.moveTargetTilePos;
+	}
 
 	//All non-player entity turn logic happens here
 
