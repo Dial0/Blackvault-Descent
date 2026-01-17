@@ -84,10 +84,7 @@ void handleInput(State* state) {
 			}
 			else {
 				state->playerEnt.pathsize = findAsPath(state->playerEnt.tilePos, state->cursTilePos, state->mapData, state->playerEnt.path, 200);
-				state->playerEnt.moveTargetTilePos = mapIdxToXY(state->playerEnt.path[0], state->mapSizeX);
 			}
-
-
 
 			iVec2 nextPathTile = mapIdxToXY(state->playerEnt.path[1], state->mapSizeX);
 			int enemyIdxOccupy = tileOccupiedByEnemy(nextPathTile, &state->enemies[0], state->enemiesLen);
@@ -120,7 +117,6 @@ void startNewTurn(State* state) {
 	state->curTurn += 1;
 
 	if (state->playerEnt.currentState == ATTACKING) {
-		state->playerEnt.nextTurnState = IDLE;
 		state->playerEnt.pathsize = 0;
 		state->playerEnt.movePathIdx = 0;
 		state->playerEnt.animation.type = ANIM_ATTACKING;
@@ -169,23 +165,32 @@ void updateTurnProgress(State* state) {
 
 void endTurn(State* state) {
 
-	if (state->playerEnt.currentState == MOVING && !setEntityIdleIfPathEnd(&state->playerEnt)) {
+	if (state->playerEnt.currentState == ATTACKING) {
+		// maybe we can check if the enemy is dead or not and if the are still alive continue attacking?
+		state->playerEnt.nextTurnState = IDLE;
+		state->playerEnt.animation.type = ANIM_IDLE;
+	}
+
+	if (state->playerEnt.currentState == MOVING) {
+
+		bool pathEndReached = state->playerEnt.movePathIdx >= (state->playerEnt.pathsize - 1);
+
 		//If we didn't idle from reaching the end of the path, check if there is an obstruction in the path
 		//If there is, set to idle, so player can react
 		iVec2 nextTile = mapIdxToXY(state->playerEnt.path[state->playerEnt.movePathIdx + 1], state->mapSizeX);
 		int enemyIdxOccupy = tileOccupiedByEnemy(nextTile, &state->enemies[0], state->enemiesLen);
-		if (enemyIdxOccupy != -1) {
-			state->playerEnt.nextTurnState = IDLE;
+
+		bool nextTileOccupied = enemyIdxOccupy != -1;
+
+		if (pathEndReached || nextTileOccupied) {
 			state->playerEnt.pathsize = 0;
 			state->playerEnt.movePathIdx = 0;
+			state->playerEnt.nextTurnState = IDLE;
+			state->playerEnt.animation.type = ANIM_IDLE;
 		}
 	}
 
-	if (state->playerEnt.currentState == IDLE || state->playerEnt.nextTurnState == IDLE) {
-		state->playerEnt.animation.type = ANIM_IDLE;
-	}
-
-	//Make sure the player and enemies are the target tile from the end of last turn
+	//Make sure the player and enemies are the target tile before finalising the turn
 	state->playerEnt.tilePos = state->playerEnt.moveTargetTilePos;
 	state->playerEnt.renderWorldPos.x = (float)state->playerEnt.moveTargetTilePos.x;
 	state->playerEnt.renderWorldPos.y = (float)state->playerEnt.moveTargetTilePos.y;
@@ -213,19 +218,20 @@ void updateRender(State* state) {
 	return;
 }
 
-void UpdateDrawFrameTest(void* v_state) {
+void updateGameLoop(void* v_state) {
 	State* state = (State*)v_state;
 	state->gameTime = GetTime();
 
-	// ---------------------------------------------------------------
-	// A. Always - frame-rate independent input / UI
-	// ---------------------------------------------------------------
+	// ---------------------------------------------------------------------
+	// frame-rate independent input capture - action queuing, ui changes etc
+	// ---------------------------------------------------------------------
 
-	handleInput(state);           // cursor movement, mouse hover, scrolling etc.
+	handleInput(state);
 
-	// ---------------------------------------------------------------
-	// B. Turn start gate - only when waiting AND time is ready AND action queued
-	// ---------------------------------------------------------------
+	// ---------------------------------------------------------------------
+	// code that only runs at the start of a turn, executing the player action
+	// calculating enemy moves etc
+	// ---------------------------------------------------------------------
 	if (state->turnPhase == TURN_PHASE_WAITING) {
 		if (state->gameTime > state->nextTurnTime && playerHasQueuedAction(state)) {
 			state->turnPhase = TURN_PHASE_IN_PROGRESS;
@@ -233,22 +239,24 @@ void UpdateDrawFrameTest(void* v_state) {
 		}
 	}
 
-	// ---------------------------------------------------------------
-	// C. During active turn - smooth progress & per-frame updates
-	// ---------------------------------------------------------------
+	// ----------------------------------------------------------------
+	// code that runs during the turn, other than render/animation code
+	// but stops running when the turn phase is in waitng phase
+	// ----------------------------------------------------------------
 	if (state->turnPhase == TURN_PHASE_IN_PROGRESS) {
-		updateTurnProgress(state);          // lerp positions, advance animations, etc.
+		updateTurnProgress(state);         
 
-		// Check if the 600 ms window has ended
 		if (state->gameTime >= state->nextTurnTime) {
+
+		// ----------------------------------------------------------------------
+		// END TURN - clean up from the turn making sure all actions are finished
+		// calculate if the player action is finished or can be continued into the next turn
+		// ---------------------------------------------------------------------
 			endTurn(state);
 			state->turnPhase = TURN_PHASE_WAITING;
 		}
 	}
 
-	// ---------------------------------------------------------------
-	// D. Always - prepare rendering
-	// ---------------------------------------------------------------
 	updateRender(state);
 	drawFrame(state);
 }

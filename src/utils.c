@@ -122,3 +122,13 @@ double getTurnElapsedTime(double gameTime, double nextTurnTime, double TurnDurat
 	if (elapsedTime > TurnDuration) { elapsedTime = TurnDuration; }
 	return elapsedTime;
 }
+
+
+int tileOccupiedByEnemy(iVec2 tile, Entity* OtherEnemies, int enemiesLen) {
+	for (int i = 0; i < enemiesLen; i += 1) {
+		if (OtherEnemies[i].moveTargetTilePos.x == tile.x && OtherEnemies[i].moveTargetTilePos.y == tile.y) {
+			return i;
+		}
+	}
+	return -1;
+}

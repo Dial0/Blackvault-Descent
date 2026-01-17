@@ -1,75 +1,127 @@
 
 typedef enum {
-	ACT_MOVE,
+	ACT_MOVE_PATH,
 	ACT_MELEE_ATK,
-	ACT_RANGED_ATK
 }ActionType;
+
+typedef struct { State* state; iVec2 targetTile; } ActionMovePath; //Maybe update this to take an entity ID? to be more general?
+typedef struct { State* state; iVec2 combatTargetTile; } ActionMelee;
 
 typedef struct {
 	ActionType type;
 	union {
-		struct { Vector2 direction; float speed; } move;
-		struct { int weapon_id; float power; } melee;
-		struct { int weapon_id; float power; } ranged;
+		ActionMovePath actionMovePath;
+		ActionMelee actionMelee;
 	};
 } EntityAction;
 
-// ?? Handler function prototype ?????????????????????????????????????????
+typedef void (*EntityActionHandlerStart)(const EntityAction* cmd);
+typedef void (*EntityActionHandlerEnd)(const EntityAction* cmd);
 
-typedef void (*EntityActionHandler)(const EntityAction* cmd);
+static void actionMovePathStart(const EntityAction* v_data) {
+	ActionMovePath data = v_data->actionMovePath;
+	State* state = data.state;
 
-// ?? Individual handlers ????????????????????????????????????????????????
 
-static void actionMove(const EntityAction* cmd) {
-	//printf("Moving: %.1f, %.1f @ speed %.1f\n",
-	//	cmd->move.direction.x,
-	//	cmd->move.direction.y,
-	//	cmd->move.speed);
+	updateEntityPath(&state->playerEnt, state->mapSizeX);
+	state->playerEnt.animation.type = ANIM_MOVING;
+	state->playerEnt.animation.data.moving.start = state->playerEnt.tilePos;
+	state->playerEnt.animation.data.moving.end = state->playerEnt.moveTargetTilePos;
 }
 
-static void actionMelee(const EntityAction* cmd) {
-	//printf("Shooting weapon %d with power %.1f\n",
-	//	cmd->melee.weapon_id,
-	//	cmd->melee.power);
+static void actionMovePathEnd(const EntityAction* v_data) {
+	ActionMovePath data = v_data->actionMovePath;
+	State* state = data.state;
+
+	bool pathEndReached = state->playerEnt.movePathIdx >= (state->playerEnt.pathsize - 1);
+
+	//If we didn't idle from reaching the end of the path, check if there is an obstruction in the path
+	//If there is, set to idle, so player can react
+	iVec2 nextTile = mapIdxToXY(state->playerEnt.path[state->playerEnt.movePathIdx + 1], state->mapSizeX);
+	int enemyIdxOccupy = tileOccupiedByEnemy(nextTile, &state->enemies[0], state->enemiesLen);
+
+	bool nextTileOccupied = enemyIdxOccupy != -1;
+
+	if (pathEndReached || nextTileOccupied) {
+		state->playerEnt.pathsize = 0;
+		state->playerEnt.movePathIdx = 0;
+		state->playerEnt.nextTurnState = IDLE;
+		state->playerEnt.animation.type = ANIM_IDLE;
+	}
 }
 
-static void actionRanged(const EntityAction* cmd) {
-	//printf("Shooting weapon %d with power %.1f\n",
-	//	cmd->melee.weapon_id,
-	//	cmd->melee.power);
+static void actionMeleeStart(const EntityAction* v_data) {
+	ActionMelee data = v_data->actionMelee;
+	State* state = data.state;
+
+	state->playerEnt.combatTargetTilePos = data.combatTargetTile;
+	state->playerEnt.pathsize = 0;
+	state->playerEnt.movePathIdx = 0;
+	state->playerEnt.animation.type = ANIM_ATTACKING;
+	state->playerEnt.animation.data.attacking.start = state->playerEnt.tilePos;
+	state->playerEnt.animation.data.attacking.end = state->playerEnt.combatTargetTilePos;
+
+	for (int i = 0; i < state->enemiesLen; i += 1) {
+		iVec2 enemyPos = state->enemies[i].moveTargetTilePos;
+		iVec2 playerAtkPos = state->playerEnt.combatTargetTilePos;
+		if (enemyPos.x == playerAtkPos.x && enemyPos.y == playerAtkPos.y) {
+			state->enemies[i].hitPoints -= state->playerEnt.atkStr;
+			if (state->enemies[i].hitPoints <= 0) {
+				state->enemies[i].hitPoints = 0;
+				state->enemies[i].currentState = DEAD;
+			}
+		}
+	}
 }
 
-// ?? Dispatch table ?????????????????????????????????????????????????????
+static void actionMeleeEnd(const EntityAction* v_data) {
+	ActionMelee data = v_data->actionMelee;
+	State* state = data.state;
 
-static const EntityActionHandler handlers[] = {
-	[ACT_MOVE] = actionMove,
-	[ACT_MELEE_ATK] = actionMelee,
-	[ACT_RANGED_ATK] = actionRanged
+	state->playerEnt.nextTurnState = IDLE;
+	state->playerEnt.animation.type = ANIM_IDLE;
+}
+
+
+static const EntityActionHandlerStart startActionHandlers[] = {
+	[ACT_MOVE_PATH]	= actionMovePathStart,
+	[ACT_MELEE_ATK] = actionMeleeStart
 };
 
-// ?? Dispatcher ?????????????????????????????????????????????????????????
+static const EntityActionHandlerEnd endActionHandlers[] = {
+	[ACT_MOVE_PATH] = actionMovePathEnd,
+	[ACT_MELEE_ATK] = actionMeleeEnd
+};
 
-void processEntityAction(const EntityAction* action) {
-	if (action->type >= sizeof(handlers) / sizeof(handlers[0]) || !handlers[action->type]) {
-		//fprintf(stderr, "Unknown or unimplemented command: %d\n", action->type);
+
+void processEntityActionStart(const EntityAction* action) {
+	if (action->type >= sizeof(startActionHandlers) / sizeof(startActionHandlers[0]) || !startActionHandlers[action->type]) {
 		return;
 	}
-
-	handlers[action->type](action);
+	startActionHandlers[action->type](action);
 }
 
-// ?? Usage example ??????????????????????????????????????????????????????
 
-int ActionExample(void) {
+void processEntityActionEnd(const EntityAction* action) {
+	if (action->type >= sizeof(endActionHandlers) / sizeof(endActionHandlers[0]) || !endActionHandlers[action->type]) {
+		return;
+	}
+	endActionHandlers[action->type](action);
+}
+
+
+
+int ActionExample(State* state) {
+
+
+
 	EntityAction commands[] = {
-		{.type = ACT_MOVE,  .move = { {1.0f, -2.0f}, 5.5f } },
-		{.type = ACT_MELEE_ATK, .melee = { 1, 100.0f } },
-		{.type = ACT_RANGED_ATK,  .ranged = { 1, 100.0f } }
+		{.type = ACT_MOVE_PATH,  {state,{ 1.0f, -2.0f}}},
+		{.type = ACT_MELEE_ATK ,  {state,{ 1.0f, -2.0f} }}
 	};
 
 	for (int i = 0; i < sizeof(commands) / sizeof(commands[0]); i++) {
-		//printf("Processing command %zu: ", i);
-		processEntityAction(&commands[i]);
+		processEntityActionStart(&commands[i]);
 	}
 
 	return 0;
